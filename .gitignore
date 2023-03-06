@@ -1,0 +1,5 @@
+target\classes
+library.txt
+pom.xml
+*.class
+hello-view.fxml
