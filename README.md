@@ -24,3 +24,6 @@ This software will allow users to add, remove, view, edit, sort, and search thro
 ### Why would anyone want to use this over existing processes?
 
 Compared to other popular services and applications, like Letterboxd and Goodreads, Media Library has two significant differences: It is more general, and it has a greater emphasis on visualizing data in a satisfying way. It also lacks an online social element as the focus is more on user-specific data.
+
+
+![Media Library UML diagram](https://user-images.githubusercontent.com/125315977/223275491-89014bbb-d063-4e01-9cb2-7f6b63e876e2.png)
