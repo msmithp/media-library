@@ -13,45 +13,74 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
-import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.GridPane;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.VBox;
+import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Text;
+import javafx.scene.text.TextAlignment;
 import javafx.stage.Stage;
 
 import java.time.Year;
 import java.util.Comparator;
 
 public class MediaLibrary extends Application {
+    private static ScrollPane libScroll;
+    private static Text sizeText;
+    private static Text titleText;
 
     /** Creates and displays JavaFX GUI */
     @Override
     public void start(Stage primaryStage) {
         // ----- MAIN LIBRARY STAGE ----- //
 
-        HBox top = new HBox(15);
-        top.setPadding(new Insets(10, 10, 10, 10));
-        top.setAlignment(Pos.CENTER);
+        Pane top = new Pane();
+        top.setPadding(new Insets(7, 0, 0, 7));
+
+        Button btHome = new Button("Home");
+        btHome.setPrefWidth(50);
+        btHome.setLayoutX(20);
+        btHome.setLayoutY(5);
+
+        Button btUndo = new Button("Undo");
+        btUndo.setPrefWidth(50);
+        btUndo.setLayoutX(100);
+        btUndo.setLayoutY(5);
+
+        Button btRedo = new Button("Redo");
+        btRedo.setPrefWidth(50);
+        btRedo.setLayoutX(155);
+        btRedo.setLayoutY(5);
+        
         Button btAdd = new Button("+");
-        Text textLibrary = new Text("My Media Library");
+        btAdd.setPrefWidth(25);
+        btAdd.setLayoutX(730);
+        btAdd.setLayoutY(5);
+        
+        Button btOther = new Button("...");
+        btOther.setPrefWidth(30);
+        btOther.setLayoutX(760);
+        btOther.setLayoutY(5);
+        
+        titleText = new Text(350, 25, "My Media Library");
+
         ComboBox<String> cboSort = new ComboBox<>();
+        cboSort.setLayoutX(545);
+        cboSort.setLayoutY(5);
+
         String[] sortOptions = {"Sort by Name", "Sort by Genre", "Sort by Format", "Sort by Rating",
                 "Sort by Color", "Sort by Year", "Sort by Year Consumed", "Sort by Date Added"};
         cboSort.getItems().addAll(sortOptions);
         cboSort.setValue("Sort by Date Added");
-        top.getChildren().addAll(btAdd, textLibrary, cboSort);
+        top.getChildren().addAll(btHome, btUndo, btRedo, btAdd, btOther, titleText, cboSort);
 
         Library lib = new Library();
-        ScrollPane libScroll = new ScrollPane(lib);
-        lib.read();
-        lib.sort(Comparator.comparing(Media::getDateAdded).reversed());
+        libScroll = new ScrollPane(lib);
+        lib.read(); // Read library from file
+        lib.sort(Comparator.comparing(Media::getDateAdded).reversed()); // Default sort: sort by date
 
         HBox bottom = new HBox(15);
         bottom.setPadding(new Insets(10, 10, 10, 10));
-        Text textBottom = new Text("Library size: " + lib.getSize());
-        bottom.getChildren().addAll(textBottom);
+        sizeText = new Text("Library size: " + lib.getSize());
+        bottom.getChildren().addAll(sizeText);
 
         BorderPane bp = new BorderPane();
         bp.setTop(top);
@@ -64,6 +93,18 @@ public class MediaLibrary extends Application {
         primaryStage.setResizable(false);
         primaryStage.show();
 
+        btUndo.setOnAction(e -> {
+            setTitle("My Media Library");
+            lib.undo();
+        });
+        btRedo.setOnAction(e -> {
+            setTitle("My Media Library");
+            lib.redo();
+        });
+        btHome.setOnAction(e -> {
+            setTitle("My Media Library");
+            lib.draw();
+        });
         cboSort.setOnAction(e -> sortLibrary(lib, cboSort.getValue()));
 
         // ----- INITIAL "ADD" STAGE ----- //
@@ -398,27 +439,26 @@ public class MediaLibrary extends Application {
 
         btAddMovie.setOnAction(e -> {
             try {
-                if (nameTF.getText().equals("")) {
+                if (nameTF.getText().isBlank()) {
                     movieError.setText("You must enter a movie name");
-                } else if (!ratingTF.getText().equals("") && (Double.parseDouble(ratingTF.getText()) > 10.0 || Double.parseDouble(ratingTF.getText()) < 0)) {
+                } else if (!ratingTF.getText().isBlank() && Media.validateRating(Double.parseDouble(ratingTF.getText()))) {
                     movieError.setText("Rating must be between 0 and 10");
-                } else if (!durationTF.getText().equals("") && Integer.parseInt(durationTF.getText()) < 0) {
+                } else if (!durationTF.getText().isBlank() && Integer.parseInt(durationTF.getText()) < 0) {
                     movieError.setText("Duration cannot be less than 0");
-                } else {
+                } else { // Successful case
                     String n = nameTF.getText();
                     String g = genreTF.getText();
                     String desc = descriptionTA.getText();
                     String f = formatTF.getText();
-                    int y = yearTF.getText().equals("") ? Year.now().getValue() : Integer.parseInt(yearTF.getText());
-                    int yc = yearConsumedTF.getText().equals("") ? Year.now().getValue() : Integer.parseInt(yearConsumedTF.getText());
-                    double r = ratingTF.getText().equals("") ? 0 : Double.parseDouble(ratingTF.getText());
+                    int y = yearTF.getText().isBlank() ? Year.now().getValue() : Integer.parseInt(yearTF.getText());
+                    int yc = yearConsumedTF.getText().isBlank() ? Year.now().getValue() : Integer.parseInt(yearConsumedTF.getText());
+                    double r = ratingTF.getText().isBlank() ? 0 : Double.parseDouble(ratingTF.getText());
                     double[] c = {colorPicker.getValue().getRed(), colorPicker.getValue().getGreen(), colorPicker.getValue().getBlue(), colorPicker.getValue().getOpacity()};
                     String dir = directorTF.getText();
-                    int d = durationTF.getText().equals("") ? 0 : Integer.parseInt(durationTF.getText());
+                    int d = durationTF.getText().isBlank() ? 0 : Integer.parseInt(durationTF.getText());
 
                     lib.add(new Movie(n, g, desc, f, y, yc, r, c, dir, d));
                     sortLibrary(lib, cboSort.getValue());
-                    textBottom.setText("Library size: " + lib.getSize());
                     movieAddStage.hide();
                 }
             } catch (Exception ex) {
@@ -428,30 +468,29 @@ public class MediaLibrary extends Application {
 
         btAddShow.setOnAction(e -> {
             try {
-                if (nameTF.getText().equals("")) {
+                if (nameTF.getText().isBlank()) {
                     showError.setText("You must enter a show name");
-                } else if (!ratingTF.getText().equals("") && (Double.parseDouble(ratingTF.getText()) > 10.0 || Double.parseDouble(ratingTF.getText()) < 0)) {
+                } else if (!ratingTF.getText().isBlank() && Media.validateRating(Double.parseDouble(ratingTF.getText()))) {
                     showError.setText("Rating must be between 0 and 10");
-                } else if (!numSeasonsTF.getText().equals("") && Integer.parseInt(numSeasonsTF.getText()) < 0) {
+                } else if (!numSeasonsTF.getText().isBlank() && Integer.parseInt(numSeasonsTF.getText()) < 0) {
                     showError.setText("Number of seasons cannot be less than 0");
-                } else if (!numEpisodesTF.getText().equals("") && Integer.parseInt(numEpisodesTF.getText()) < 0) {
+                } else if (!numEpisodesTF.getText().isBlank() && Integer.parseInt(numEpisodesTF.getText()) < 0) {
                     showError.setText("Number of episodes cannot be less than 0");
-                } else {
+                } else { // Successful case
                     String n = nameTF.getText();
                     String g = genreTF.getText();
                     String desc = descriptionTA.getText();
                     String f = formatTF.getText();
-                    int y = yearTF.getText().equals("") ? Year.now().getValue() : Integer.parseInt(yearTF.getText());
-                    int yc = yearConsumedTF.getText().equals("") ? Year.now().getValue() : Integer.parseInt(yearConsumedTF.getText());
-                    double r = ratingTF.getText().equals("") ? 0 : Double.parseDouble(ratingTF.getText());
+                    int y = yearTF.getText().isBlank() ? Year.now().getValue() : Integer.parseInt(yearTF.getText());
+                    int yc = yearConsumedTF.getText().isBlank() ? Year.now().getValue() : Integer.parseInt(yearConsumedTF.getText());
+                    double r = ratingTF.getText().isBlank() ? 0 : Double.parseDouble(ratingTF.getText());
                     double[] c = {colorPicker.getValue().getRed(), colorPicker.getValue().getGreen(), colorPicker.getValue().getBlue(), colorPicker.getValue().getOpacity()};
                     String cr = creatorTF.getText();
-                    int ns = numSeasonsTF.getText().equals("") ? 0 : Integer.parseInt(numSeasonsTF.getText());
-                    int ne = numEpisodesTF.getText().equals("") ? 0 : Integer.parseInt(numEpisodesTF.getText());
+                    int ns = numSeasonsTF.getText().isBlank() ? 0 : Integer.parseInt(numSeasonsTF.getText());
+                    int ne = numEpisodesTF.getText().isBlank() ? 0 : Integer.parseInt(numEpisodesTF.getText());
 
                     lib.add(new Show(n, g, desc, f, y, yc, r, c, cr, ns, ne));
                     sortLibrary(lib, cboSort.getValue());
-                    textBottom.setText("Library size: " + lib.getSize());
                     showAddStage.hide();
                 }
             } catch (Exception ex) {
@@ -461,28 +500,27 @@ public class MediaLibrary extends Application {
 
         btAddGame.setOnAction(e -> {
             try {
-                if (nameTF.getText().equals("")) {
+                if (nameTF.getText().isBlank()) {
                     gameError.setText("You must enter a game name");
-                } else if (!ratingTF.getText().equals("") && (Double.parseDouble(ratingTF.getText()) > 10.0 || Double.parseDouble(ratingTF.getText()) < 0)) {
+                } else if (!ratingTF.getText().isBlank() && Media.validateRating(Double.parseDouble(ratingTF.getText()))) {
                     gameError.setText("Rating must be between 0 and 10");
-                } else if (!numPlayersTF.getText().equals("") && Integer.parseInt(numPlayersTF.getText()) < 0) {
+                } else if (!numPlayersTF.getText().isBlank() && Integer.parseInt(numPlayersTF.getText()) < 0) {
                     gameError.setText("Number of players cannot be less than 0");
-                } else {
+                } else { // Successful case
                     String n = nameTF.getText();
                     String g = genreTF.getText();
                     String desc = descriptionTA.getText();
                     String f = formatTF.getText();
-                    int y = yearTF.getText().equals("") ? Year.now().getValue() : Integer.parseInt(yearTF.getText());
-                    int yc = yearConsumedTF.getText().equals("") ? Year.now().getValue() : Integer.parseInt(yearConsumedTF.getText());
-                    double r = ratingTF.getText().equals("") ? 0 : Double.parseDouble(ratingTF.getText());
+                    int y = yearTF.getText().isBlank() ? Year.now().getValue() : Integer.parseInt(yearTF.getText());
+                    int yc = yearConsumedTF.getText().isBlank() ? Year.now().getValue() : Integer.parseInt(yearConsumedTF.getText());
+                    double r = ratingTF.getText().isBlank() ? 0 : Double.parseDouble(ratingTF.getText());
                     double[] c = {colorPicker.getValue().getRed(), colorPicker.getValue().getGreen(), colorPicker.getValue().getBlue(), colorPicker.getValue().getOpacity()};
                     String dev = developerTF.getText();
                     String con = consoleTF.getText();
-                    int np = numPlayersTF.getText().equals("") ? 0 : Integer.parseInt(numPlayersTF.getText());
+                    int np = numPlayersTF.getText().isBlank() ? 0 : Integer.parseInt(numPlayersTF.getText());
 
                     lib.add(new Game(n, g, desc, f, y, yc, r, c, dev, con, np));
                     sortLibrary(lib, cboSort.getValue());
-                    textBottom.setText("Library size: " + lib.getSize());
                     gameAddStage.hide();
                 }
             } catch (Exception ex) {
@@ -492,24 +530,23 @@ public class MediaLibrary extends Application {
 
         btAddMusic.setOnAction(e -> {
             try {
-                if (nameTF.getText().equals("")) {
+                if (nameTF.getText().isBlank()) {
                     musicError.setText("You must enter a music name");
-                } else if (!ratingTF.getText().equals("") && (Double.parseDouble(ratingTF.getText()) > 10.0 || Double.parseDouble(ratingTF.getText()) < 0)) {
+                } else if (!ratingTF.getText().isBlank() && Media.validateRating(Double.parseDouble(ratingTF.getText()))) {
                     musicError.setText("Rating must be between 0 and 10");
-                } else {
+                } else { // Successful case
                     String n = nameTF.getText();
                     String g = genreTF.getText();
                     String desc = descriptionTA.getText();
                     String f = formatTF.getText();
-                    int y = yearTF.getText().equals("") ? Year.now().getValue() : Integer.parseInt(yearTF.getText());
-                    int yc = yearConsumedTF.getText().equals("") ? Year.now().getValue() : Integer.parseInt(yearConsumedTF.getText());
-                    double r = ratingTF.getText().equals("") ? 0 : Double.parseDouble(ratingTF.getText());
+                    int y = yearTF.getText().isBlank() ? Year.now().getValue() : Integer.parseInt(yearTF.getText());
+                    int yc = yearConsumedTF.getText().isBlank() ? Year.now().getValue() : Integer.parseInt(yearConsumedTF.getText());
+                    double r = ratingTF.getText().isBlank() ? 0 : Double.parseDouble(ratingTF.getText());
                     double[] c = {colorPicker.getValue().getRed(), colorPicker.getValue().getGreen(), colorPicker.getValue().getBlue(), colorPicker.getValue().getOpacity()};
                     String art = artistTF.getText();
 
                     lib.add(new Music(n, g, desc, f, y, yc, r, c, art));
                     sortLibrary(lib, cboSort.getValue());
-                    textBottom.setText("Library size: " + lib.getSize());
                     musicAddStage.hide();
                 }
             } catch (Exception ex) {
@@ -519,24 +556,23 @@ public class MediaLibrary extends Application {
 
         btAddBook.setOnAction(e -> {
             try {
-                if (nameTF.getText().equals("")) {
+                if (nameTF.getText().isBlank()) {
                     bookError.setText("You must enter a book name");
-                } else if (!ratingTF.getText().equals("") && (Double.parseDouble(ratingTF.getText()) > 10.0 || Double.parseDouble(ratingTF.getText()) < 0)) {
+                } else if (!ratingTF.getText().isBlank() && Media.validateRating(Double.parseDouble(ratingTF.getText()))) {
                     bookError.setText("Rating must be between 0 and 10");
-                } else {
+                } else { // Successful case
                     String n = nameTF.getText();
                     String g = genreTF.getText();
                     String desc = descriptionTA.getText();
                     String f = formatTF.getText();
-                    int y = yearTF.getText().equals("") ? Year.now().getValue() : Integer.parseInt(yearTF.getText());
-                    int yc = yearConsumedTF.getText().equals("") ? Year.now().getValue() : Integer.parseInt(yearConsumedTF.getText());
-                    double r = ratingTF.getText().equals("") ? 0 : Double.parseDouble(ratingTF.getText());
+                    int y = yearTF.getText().isBlank() ? Year.now().getValue() : Integer.parseInt(yearTF.getText());
+                    int yc = yearConsumedTF.getText().isBlank() ? Year.now().getValue() : Integer.parseInt(yearConsumedTF.getText());
+                    double r = ratingTF.getText().isBlank() ? 0 : Double.parseDouble(ratingTF.getText());
                     double[] c = {colorPicker.getValue().getRed(), colorPicker.getValue().getGreen(), colorPicker.getValue().getBlue(), colorPicker.getValue().getOpacity()};
                     String auth = authorTF.getText();
 
                     lib.add(new Book(n, g, desc, f, y, yc, r, c, auth));
                     sortLibrary(lib, cboSort.getValue());
-                    textBottom.setText("Library size: " + lib.getSize());
                     bookAddStage.hide();
                 }
             } catch (Exception ex) {
@@ -579,6 +615,89 @@ public class MediaLibrary extends Application {
         btCancelGame.setOnAction(e -> gameAddStage.hide());
         btCancelMusic.setOnAction(e -> musicAddStage.hide());
         btCancelBook.setOnAction(e -> bookAddStage.hide());
+
+        // ----- "OTHER" STAGE ----- //
+
+        HBox otherHB = new HBox();
+        otherHB.setPadding(new Insets(10, 10, 10, 10));
+        otherHB.setAlignment(Pos.CENTER);
+        Text otherText = new Text("More Options");
+        otherText.setTextAlignment(TextAlignment.CENTER);
+        otherHB.getChildren().add(otherText);
+
+        Pane otherPane = new Pane();
+        Button btGroup = new Button("Show a group");
+        btGroup.setPrefWidth(200);
+        btGroup.setLayoutX(50);
+        btGroup.setLayoutY(20);
+
+        Button btSearch = new Button("Search for an item");
+        btSearch.setPrefWidth(200);
+        btSearch.setLayoutX(50);
+        btSearch.setLayoutY(60);
+
+        otherPane.getChildren().addAll(btGroup, btSearch);
+
+        BorderPane otherBP = new BorderPane();
+        otherBP.setTop(otherHB);
+        otherBP.setCenter(otherPane);
+        Scene otherScene = new Scene(otherBP, 300, 150);
+        Stage otherStage = new Stage();
+        otherStage.setScene(otherScene);
+        otherStage.setResizable(false);
+        otherStage.setTitle("More Options");
+
+        btOther.setOnAction(e -> otherStage.show());
+
+        TextField otherGroupSearch = new TextField();
+        otherGroupSearch.setPromptText("Type a group...");
+        otherGroupSearch.setPrefWidth(130);
+        otherGroupSearch.setLayoutX(50);
+        otherGroupSearch.setLayoutY(20);
+
+        Button btGroupSearch = new Button("Search");
+        btGroupSearch.setPrefWidth(60);
+        btGroupSearch.setLayoutX(190);
+        btGroupSearch.setLayoutY(20);
+
+        TextField otherGeneralSearch = new TextField();
+        otherGeneralSearch.setPromptText("Type a name...");
+        otherGeneralSearch.setPrefWidth(130);
+        otherGeneralSearch.setLayoutX(50);
+        otherGeneralSearch.setLayoutY(60);
+
+        Button btGeneralSearch = new Button("Search");
+        btGeneralSearch.setPrefWidth(60);
+        btGeneralSearch.setLayoutX(190);
+        btGeneralSearch.setLayoutY(60);
+
+        btGroup.setOnAction(e -> {
+           otherPane.getChildren().remove(btGroup);
+           otherPane.getChildren().addAll(otherGroupSearch, btGroupSearch);
+            if (!otherPane.getChildren().contains(btSearch)) {
+                otherPane.getChildren().removeAll(otherGeneralSearch, btGeneralSearch);
+                otherPane.getChildren().add(btSearch);
+            }
+        });
+
+        btSearch.setOnAction(e -> {
+           otherPane.getChildren().remove(btSearch);
+           otherPane.getChildren().addAll(otherGeneralSearch, btGeneralSearch);
+           if (!otherPane.getChildren().contains(btGroup)) {
+               otherPane.getChildren().removeAll(otherGroupSearch, btGroupSearch);
+               otherPane.getChildren().add(btGroup);
+           }
+        });
+
+        btGroupSearch.setOnAction(e -> {
+            setTitle("Group: " + otherGroupSearch.getText());
+            otherStage.close();
+            lib.drawGroup(otherGroupSearch.getText());
+        });
+
+        btGeneralSearch.setOnAction(e -> {
+            // general search
+        });
     }
 
     /** Clears all specified text fields and text areas */
@@ -588,7 +707,7 @@ public class MediaLibrary extends Application {
         }
     }
 
-    public static void sortLibrary (Library lib, String sortBy) {
+    public static void sortLibrary(Library lib, String sortBy) {
         switch (sortBy) {
             case "Sort by Name":
                 lib.sort((m1, m2) -> (m1.getName().compareToIgnoreCase(m2.getName())));
@@ -600,11 +719,12 @@ public class MediaLibrary extends Application {
                 lib.sort((m1, m2) -> (m1.getFormat().compareToIgnoreCase(m2.getFormat())));
                 break;
             case "Sort by Rating":
-                lib.sort(Comparator.comparing(Media::getRating));
+                lib.sort(Comparator.comparing(Media::getRating).reversed());
                 break;
             case "Sort by Color":
-                lib.sort((m1, m2) -> (int) (Color.color(m1.getColor()[0], m1.getColor()[1], m1.getColor()[2], m1.getColor()[3]).getHue() -
-                        Color.color(m2.getColor()[0], m2.getColor()[1], m2.getColor()[2], m2.getColor()[3]).getHue()));
+                lib.sort(Comparator.comparing((Media m) -> (int) m.getColor().getHue())
+                        .thenComparing((Media m) -> (int) m.getColor().getSaturation())
+                        .thenComparing((Media m) -> (int) m.getColor().getBrightness()));
                 break;
             case "Sort by Year":
                 lib.sort(Comparator.comparing(Media::getYear));
@@ -615,5 +735,18 @@ public class MediaLibrary extends Application {
             default:
                 lib.sort(Comparator.comparing(Media::getDateAdded).reversed());
         }
+    }
+
+    public static void setScroll(double h, double v) {
+        libScroll.setHvalue(h);
+        libScroll.setVvalue(v);
+    }
+
+    public static void setSize(int size) {
+        sizeText.setText("Library size: " + size);
+    }
+
+    public static void setTitle(String title) {
+        titleText.setText(title);
     }
 }

@@ -9,12 +9,15 @@
 
 package com.matthewsmith.medialibrary;
 
+import javafx.scene.paint.Color;
+
 import java.io.Serializable;
 import java.time.Year;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.Objects;
 
-public class Media implements Serializable {
+public class Media implements Serializable, Cloneable {
     private String name;
     private String genre;
     private String description;
@@ -22,7 +25,7 @@ public class Media implements Serializable {
     private int year;
     private int yearConsumed;
     private double rating;
-    private double[] color;
+    private double[] color; // R, G, B, and opacity values
     private Date dateAdded = new Date();
 
     public Media(String name) {
@@ -68,8 +71,12 @@ public class Media implements Serializable {
         return rating;
     }
 
-    public double[] getColor() {
+    public double[] getColorArray() {
         return color;
+    }
+
+    public Color getColor() {
+        return new Color(color[0], color[1], color[2], color[3]);
     }
 
     public Date getDateAdded() {
@@ -104,8 +111,44 @@ public class Media implements Serializable {
         this.rating = rating;
     }
 
-    public void setColor(double[] color) {
+    public void setColorArray(double[] color) {
         this.color = color;
+    }
+
+    public void setColor(Color color) {
+        double[] colorArray = {color.getRed(), color.getGreen(), color.getBlue(), color.getOpacity()};
+        this.setColorArray(colorArray);
+    }
+
+    public static boolean validateRating(double rating) {
+        return (rating < 0 || rating > 10);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        Media media = (Media) o;
+        return year == media.year &&
+                yearConsumed == media.yearConsumed &&
+                Objects.equals(name, media.name) &&
+                Objects.equals(genre, media.genre) &&
+                Objects.equals(description, media.description) &&
+                Objects.equals(format, media.format);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(name, genre, description, format, year, yearConsumed);
+    }
+
+    @Override
+    public Object clone() throws CloneNotSupportedException {
+        return super.clone();
     }
 
     @Override
