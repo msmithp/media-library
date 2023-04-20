@@ -1,6 +1,5 @@
 target\classes
 library.dat
-pom.xml
 *.class
 hello-view.fxml
 uiDesigner.xml

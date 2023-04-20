@@ -8,58 +8,65 @@
 
 package com.matthewsmith.medialibrary;
 
+import javafx.application.Platform;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.geometry.Rectangle2D;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.input.MouseButton;
-import javafx.scene.layout.Pane;
+import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.scene.paint.CycleMethod;
 import javafx.scene.paint.LinearGradient;
 import javafx.scene.paint.Stop;
 import javafx.scene.shape.Rectangle;
-import javafx.scene.text.*;
+import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
+import javafx.scene.text.Text;
+import javafx.stage.Screen;
 import javafx.stage.Stage;
 
 import java.time.Year;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Set;
 import java.util.Stack;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.RecursiveAction;
+
+import static com.matthewsmith.medialibrary.MediaLibrary.css;
 
 public class LibraryView extends Pane {
-    private Library<Media> library;
-    private Stack<Library<Media>> history; // History of user actions, for undo function
-    private Stack<Library<Media>> undoHistory; // History of undone actions, for redo function
+    private final Library<Media> library;
+    private final Stack<Command> history; // History of user actions, for undo function
+    private final Stack<Command> undoHistory; // History of undone actions, for redo function
     private final double WIDTH = 798;
     private final double HEIGHT = 467;
 
-    /** Constructors */
+    /** Creates an empty LibraryView */
     public LibraryView() {
         this(new Library<>());
     }
 
+    /** Creates a LibraryView from a library */
     public LibraryView(Library<Media> library) {
         this.library = library;
         this.history = new Stack<>();
         this.undoHistory = new Stack<>();
     }
 
-    /** Returns the Library object */
-    public Library<Media> getLibrary() {
-        return library;
-    }
-
     /** Adds an element to the library */
     public void add(Media m) {
-        saveState();
-        library.add(m);
+        pushAction(new Add(library, (Media) m.clone()));
+        library.add(m.getName(), m); // Add to library
         library.write();
         draw();
     }
 
     /** Removes an element from the library */
     public void remove(Media m) {
-        saveState();
-        library.remove(m);
+        pushAction(new Remove(library, (Media) m.clone()));
+        library.remove(m.getName(), m); // Remove from library
         MediaLibrary.setSize(library.getSize());
         library.write();
         draw();
@@ -68,8 +75,9 @@ public class LibraryView extends Pane {
     /** Undoes previous action */
     public void undo() {
         if (!history.isEmpty()) {
-            saveUndoneState();
-            this.library = history.pop();
+            Command command = history.pop();
+            command.unExecute();
+            pushUndoneAction(command);
             library.write();
             draw();
         }
@@ -78,83 +86,132 @@ public class LibraryView extends Pane {
     /** Redoes previously undone action */
     public void redo() {
         if (!undoHistory.isEmpty()) {
-            history.push(new Library<>(copy(library.getMedia()), copy(library.getGroups()), library.getFile()));
-            this.library = undoHistory.pop();
+            Command command = undoHistory.pop();
+            command.execute();
+            history.push(command);
             library.write();
             draw();
         }
     }
 
     /** Saves current state of library to history stack */
-    private void saveState() {
-        history.push(new Library<>(copy(library.getMedia()), copy(library.getGroups()), library.getFile()));
-        undoHistory.clear();
+    private void pushAction(Command action) {
+        history.push(action);
+        undoHistory.clear(); // redo action is only accessible when an action has first been undone
     }
 
     /** Saves current state of library to undo history stack */
-    private void saveUndoneState() {
-        undoHistory.push(new Library<>(copy(library.getMedia()), copy(library.getGroups()), library.getFile()));
+    private void pushUndoneAction(Command action) {
+        undoHistory.push(action);
     }
 
     /** Draws the library */
     public void draw() {
-        this.getChildren().clear();
+        draw(library.getMedia());
+    }
 
-        double x = 60; // Starting x-value
-        for (Media m : library) {
-            drawEntry(m, x);
-            x += 80;
+    /** DrawTask class for parallel draw method implementation */
+    private class DrawTask extends RecursiveAction {
+        private final int THRESHOLD = 100;
+        private ArrayList<Media> list;
+        private int start;
+        private int end;
+
+        public DrawTask(ArrayList<Media> list, int start, int end) {
+            this.list = list;
+            this.start = start;
+            this.end = end;
         }
 
+        @Override
+        protected void compute() {
+            if (end - start < THRESHOLD) {
+                for (int i = start; i < end; i++) {
+                    int x = (i * 80) + 60;
+                    drawEntry(list.get(i), x);
+                }
+            } else {
+                int middle = (start + end) / 2;
+                invokeAll(new DrawTask(list, start, middle),
+                        new DrawTask(list, middle, end));
+            }
+        }
+    }
+
+    /** Draws an ArrayList of Media */
+    public void draw(ArrayList<Media> list) {
+        this.getChildren().clear();
+        RecursiveAction mainTask = new DrawTask(list, 0, list.size());
+        ForkJoinPool pool = new ForkJoinPool();
+        pool.invoke(mainTask); // invoke task
+        drawShelfBar(library.getSize());
         MediaLibrary.setTitle("My Media Library");
-        // Bottom shelf bar
-        this.getChildren().add(new Rectangle(0, HEIGHT - 70, Math.max(WIDTH, 60 + x), 15));
-        this.setPrefWidth(Math.max(WIDTH, 60 + x));
     }
 
     /** Draws a group */
     public void drawGroup(String name) {
         this.getChildren().clear();
 
-        HashMap<Media, String> groups = library.getGroups();
-        if (!groups.containsValue(name)) {
-            return;
+        if (!library.isGroup(name)) {
+            return; // entered group does not exist
         }
 
+        Set<Media> keys = library.getGroupKeys(); // Get Media that are in groups
+
         double x = 60;
-        for (Media m : groups.keySet()) {
-            String val = groups.get(m);
+        int numEntries = 0;
+
+        // Iterate through Media in groups
+        for (Media m : keys) {
+            String val = library.getGroup(m);
             if (val != null && val.equals(name)) {
                 drawEntry(m, x);
                 x += 80;
+                numEntries++;
             }
         }
 
-        // Bottom shelf bar
-        this.getChildren().add(new Rectangle(0, HEIGHT - 70, Math.max(WIDTH, 60 + x), 15));
+        drawShelfBar(numEntries);
+    }
+
+    /** Draws the bottom shelf bar */
+    private void drawShelfBar(int numEntries) {
+        Rectangle2D screenBounds = Screen.getPrimary().getVisualBounds();
+        double screenWidth = screenBounds.getWidth();
+
+        // Draw shelf bar to be either the width of the full screen or
+        // the width of the entire library, whichever is larger
+        Rectangle bar = new Rectangle(0, HEIGHT - 70,
+                Math.max(screenWidth, 105 + 80 * numEntries), 15);
+        bar.setFill(Color.WHITE);
+        this.getChildren().add(bar);
     }
 
     /** Draws one media entry (rectangle and text) */
     private void drawEntry(Media m, double x) {
         Rectangle entry = new Rectangle(x, 70, 65, 327);
-        entry.setFill(Color.color(m.getColorArray()[0], m.getColorArray()[1], m.getColorArray()[2], m.getColorArray()[3]));
+        entry.setFill(m.getColor()); // set fill color
 
-        Text nameText = new Text(0, 233.5, m.getName());
-        nameText.setFont(Font.font("Arial", FontWeight.BOLD, 15));
+        Text nameText = new Text(0, 240, m.getName());
 
-        if (calculateTextLength(nameText) > 290) {
-            nameText.setText(shortenName(nameText, 290)); // Shorten name
+        // Font is set to allow for accurate length calculation
+        nameText.setFont(Font.font("Manrope", FontWeight.BOLD, 18));
+        nameText.getStyleClass().add("entry");
+        double textLength = calculateTextLength(nameText);
+
+        if (textLength > 270) {
+            nameText.setText(shortenText(nameText, 270)); // Shorten name
+            textLength = calculateTextLength(nameText);
         }
 
         // Text is centered on rectangle before being rotated
-        double leftBound = (x + 32.5) - (calculateTextLength(nameText) / 2);
+        double leftBound = (x + 32.5) - (textLength / 2);
         nameText.setX(leftBound);
-        nameText.setTextAlignment(TextAlignment.LEFT);
         nameText.setRotate(270); // Text is rotated
 
         // Name color is set to black or white depending on the lightness of the rectangle color
-        nameText.setFill(m.getColorArray()[0] + m.getColorArray()[1] +
-                m.getColorArray()[2] < 1.6 ? Color.WHITE : Color.BLACK);
+        nameText.setStyle(m.getColorArray()[0] + m.getColorArray()[1] +
+                m.getColorArray()[2] < 1.6 ? "-fx-fill: white;" : "-fx-fill: black;");
 
         // Entry reacts to mouse entering and exiting
         nameText.setOnMouseEntered(e -> {
@@ -201,136 +258,153 @@ public class LibraryView extends Pane {
             }
         });
 
-        this.getChildren().addAll(entry, nameText);
+        Platform.runLater(() -> this.getChildren().addAll(entry, nameText));
     }
 
     /** Displays a screen to view information about a piece of media */
     private void showViewScreen(Media m) {
-        double currentY = 25; // Starting y-value
-        final double leftX = 200;
-        final double rightX = 500;
-        final double wrapWidth = 225;
+        final int wrapWidth = 250;
 
-        Pane mediaPane = new Pane();
+        // Set up stage and VBox
         Stage stage = new Stage();
+        VBox vb = new VBox(20);
+        vb.setLayoutX(200);
+        vb.setAlignment(Pos.CENTER_LEFT);
+        vb.setPadding(new Insets(10, 0, 20, 0));
 
-        String group = library.getGroups().get(m);
-
+        // Add group, if one exists
+        String group = library.getGroup(m);
         if (group != null) {
-            Text groupText = new Text(leftX, currentY, group);
-            groupText.setFont(Font.font("Arial", FontWeight.LIGHT, FontPosture.ITALIC, 14));
+            Text groupText = new Text(group);
             groupText.setWrappingWidth(wrapWidth * 2);
-            mediaPane.getChildren().add(groupText);
-            currentY += Math.max(40, LibraryView.calculateTextHeight(groupText) + 25);
-        } else {
-            currentY += 30;
+            groupText.getStyleClass().add("group");
+            HBox groupBox = new HBox();
+            groupBox.getChildren().add(groupText);
+            groupBox.setPadding(new Insets(0, 0, -30, 0));
+            vb.getChildren().add(groupBox);
         }
 
-        Text nameText = new Text(leftX, currentY, m.getName());
-        nameText.setFont(Font.font("Arial", FontWeight.BOLD, 35));
-        nameText.setWrappingWidth(500);
-        currentY += (LibraryView.calculateTextHeight(nameText));
+        // Title text
+        Text title = new Text(m.getName());
+        title.getStyleClass().add("title");
+        title.setWrappingWidth(wrapWidth * 2);
 
-        Text descriptionText = new Text(leftX, currentY, m.getDescription());
-        descriptionText.setWrappingWidth(wrapWidth * 2);
-        currentY += (LibraryView.calculateTextHeight(descriptionText) + 25);
+        // Description
+        Text description = new Text(m.getDescription());
+        description.setWrappingWidth(wrapWidth * 2);
 
-        Text genreText = new Text(leftX, currentY, "Genre: " + m.getGenre());
-        genreText.setWrappingWidth(wrapWidth);
-        Text formatText = new Text(rightX, currentY, "Format: " + m.getFormat());
-        formatText.setWrappingWidth(wrapWidth);
-        currentY += (Math.max(LibraryView.calculateTextHeight(genreText), LibraryView.calculateTextHeight(formatText)) + 25);
+        // Genre and format row
+        HBox genreAndFormat = new HBox(10);
+        Text genre = new Text("Genre: " + m.getGenre());
+        genre.setWrappingWidth(wrapWidth);
+        Text format = new Text("Format: " +  m.getFormat());
+        format.setWrappingWidth(wrapWidth);
+        genreAndFormat.getChildren().addAll(genre, format);
 
-        Text yearText = new Text(leftX, currentY, "Year released: " + m.getYear());
-        yearText.setWrappingWidth(wrapWidth);
-        Text yearConsumedText = new Text(rightX, currentY, "Year consumed: " + m.getYearConsumed());
-        yearConsumedText.setWrappingWidth(wrapWidth);
-        currentY += (Math.max(LibraryView.calculateTextHeight(yearText), LibraryView.calculateTextHeight(yearConsumedText)) + 25);
+        // Year released and year consumed row
+        HBox yearReleasedConsumed = new HBox(10);
+        Text year = new Text("Year released: " +
+                (m.getYear() >= 0 ? m.getYear() : Math.abs(m.getYear()) + " B.C.E."));
+        year.setWrappingWidth(wrapWidth);
+        Text yearConsumed = new Text("Year consumed: " + (m.getYearConsumed() >= 0 ?
+                m.getYearConsumed() : Math.abs(m.getYearConsumed()) + " B.C.E."));
+        yearConsumed.setWrappingWidth(wrapWidth);
+        yearReleasedConsumed.getChildren().addAll(year, yearConsumed);
 
-        Text ratingText = new Text(leftX, currentY, "Rating: " + m.getRating() + "/10");
+        // Rating out of 10
+        Text ratingText = new Text("Rating: " + m.getRating() + "/10");
         ratingText.setWrappingWidth(wrapWidth);
-        currentY += (Math.max(LibraryView.calculateTextHeight(yearText), LibraryView.calculateTextHeight(yearConsumedText)) + 75);
 
-        Rectangle line = new Rectangle(leftX, currentY - 50, 500, 3);
+        // Dividing line between general and type-specific fields
+        Rectangle line = new Rectangle(0, 0, 500, 3);
+        line.setFill(Color.WHITE);
+        StackPane rectPane = new StackPane();
+        rectPane.getChildren().add(line);
 
-        mediaPane.getChildren().addAll(nameText, descriptionText, genreText, formatText,
-                yearText, yearConsumedText, ratingText, line);
+        // Add all to VBox
+        vb.getChildren().addAll(title, description, genreAndFormat,
+                yearReleasedConsumed, ratingText, rectPane);
 
+        // Type-specific fields
         if (m instanceof Movie) {
-            Text directorText = new Text(leftX, currentY, "Director: " + ((Movie) m).getDirector());
-            directorText.setWrappingWidth(wrapWidth);
+            // Director and duration row
+            HBox directorDuration = new HBox(10);
+            Text director = new Text("Director: " + ((Movie) m).getDirector());
+            director.setWrappingWidth(wrapWidth);
+            Text duration = new Text("Duration: " + ((Movie) m).getDuration());
+            duration.setWrappingWidth(wrapWidth);
 
-            Text durationText = new Text(rightX, currentY, "Duration: " + ((Movie) m).getDuration() + " minutes");
-            durationText.setWrappingWidth(wrapWidth);
-
-            currentY += (Math.max(LibraryView.calculateTextHeight(directorText), LibraryView.calculateTextHeight(durationText)) + 25);
-            mediaPane.getChildren().addAll(directorText, durationText);
+            // Add all to VBox
+            directorDuration.getChildren().addAll(director, duration);
+            vb.getChildren().add(directorDuration);
         } else if (m instanceof Show) {
-            Text creatorText = new Text(leftX, currentY, "Creator: " + ((Show) m).getCreator());
-            creatorText.setWrappingWidth(wrapWidth);
+            // Creator and seasons row
+            HBox creatorSeasons = new HBox(10);
+            Text creator = new Text("Creator: " + ((Show) m).getCreator());
+            creator.setWrappingWidth(wrapWidth);
+            Text numSeasons = new Text("Number of seasons: " + ((Show) m).getNumSeasons());
+            numSeasons.setWrappingWidth(wrapWidth);
 
-            Text numSeasonsText = new Text(rightX, currentY, "Number of seasons: " + ((Show) m).getNumSeasons());
-            numSeasonsText.setWrappingWidth(wrapWidth);
+            // Number of episodes
+            Text numEpisodes = new Text("Number of episodes: " + ((Show) m).getNumEpisodes());
+            numEpisodes.setWrappingWidth(wrapWidth);
 
-            currentY += (Math.max(LibraryView.calculateTextHeight(creatorText), LibraryView.calculateTextHeight(numSeasonsText)) + 25);
-
-            Text numEpisodesText = new Text(leftX, currentY, "Number of episodes: " + ((Show) m).getNumEpisodes());
-            numEpisodesText.setWrappingWidth(wrapWidth);
-
-            currentY += (LibraryView.calculateTextHeight(numEpisodesText) + 25);
-            mediaPane.getChildren().addAll(creatorText, numSeasonsText, numEpisodesText);
+            // Add all to VBox
+            creatorSeasons.getChildren().addAll(creator, numSeasons);
+            vb.getChildren().addAll(creatorSeasons, numEpisodes);
         } else if (m instanceof Game) {
-            Text developerText = new Text(leftX, currentY, "Developer: " + ((Game) m).getDeveloper());
-            developerText.setWrappingWidth(wrapWidth);
+            // Developer and console row
+            HBox developerConsole = new HBox(10);
+            Text developer = new Text("Developer: " + ((Game) m).getDeveloper());
+            developer.setWrappingWidth(wrapWidth);
+            Text console = new Text("Console: " + ((Game) m).getConsole());
+            console.setWrappingWidth(wrapWidth);
 
-            Text consoleText = new Text(rightX, currentY, "Console: " + ((Game) m).getConsole());
-            consoleText.setWrappingWidth(wrapWidth);
+            // Number of players
+            Text numPlayers = new Text("Number of players: " + ((Game) m).getNumPlayers());
+            numPlayers.setWrappingWidth(wrapWidth);
 
-            currentY += (Math.max(LibraryView.calculateTextHeight(developerText), LibraryView.calculateTextHeight(consoleText)) + 25);
-
-            Text numPlayersText = new Text(leftX, currentY, "Number of players: " + ((Game) m).getNumPlayers());
-            numPlayersText.setWrappingWidth(wrapWidth);
-
-            currentY += (LibraryView.calculateTextHeight(numPlayersText) + 25);
-            mediaPane.getChildren().addAll(developerText, consoleText, numPlayersText);
+            // Add all to VBox
+            developerConsole.getChildren().addAll(developer, console);
+            vb.getChildren().addAll(developerConsole, numPlayers);
         } else if (m instanceof Music) {
-            Text artistText = new Text(leftX, currentY, "Artist: " + ((Music) m).getArtist());
-            artistText.setWrappingWidth(wrapWidth);
+            // Artist
+            Text artist = new Text("Artist: " + ((Music) m).getArtist());
+            artist.setWrappingWidth(wrapWidth);
 
-            currentY += (LibraryView.calculateTextHeight(artistText) + 25);
-            mediaPane.getChildren().add(artistText);
+            // Add to VBox
+            vb.getChildren().add(artist);
         } else if (m instanceof Book) {
-            Text authorText = new Text(leftX, currentY, "Author: " + ((Book) m).getAuthor());
-            authorText.setWrappingWidth(wrapWidth);
+            // Author
+            Text author = new Text("Author: " + ((Book) m).getAuthor());
+            author.setWrappingWidth(wrapWidth);
 
-            currentY += (LibraryView.calculateTextHeight(authorText) + 25);
-            mediaPane.getChildren().add(authorText);
+            // Add to VBox
+            vb.getChildren().add(author);
         }
 
-        Text dateText = new Text(leftX, currentY, "Date added: " + m.getDateAdded());
-        mediaPane.getChildren().add(dateText);
-        currentY += (LibraryView.calculateTextHeight(dateText) + 25);
+        // Date added to library
+        Text date = new Text("Date added: " + m.getDateAdded());
+        date.setWrappingWidth(wrapWidth * 2);
 
+        // Buttons
         Button btOK = new Button("OK");
-        btOK.setPrefWidth(60);
-        btOK.setLayoutX(300);
-        btOK.setLayoutY(currentY);
-
+        btOK.setPrefWidth(70);
         Button btEdit = new Button("Edit");
-        btEdit.setPrefWidth(60);
-        btEdit.setLayoutX(370);
-        btEdit.setLayoutY(currentY);
-
+        btEdit.setPrefWidth(70);
         Button btDelete = new Button("Delete");
-        btDelete.setPrefWidth(60);
-        btDelete.setLayoutX(440);
-        btDelete.setLayoutY(currentY);
+        btDelete.setPrefWidth(70);
+        HBox buttons = new HBox(10);
+        buttons.setAlignment(Pos.CENTER);
+        buttons.getChildren().addAll(btOK, btEdit, btDelete);
+
+        vb.getChildren().addAll(date, buttons);
 
         btOK.setOnAction(e -> stage.close());
 
         btEdit.setOnAction(e -> {
-           showEditScreen(m);
-           stage.close();
+            showEditScreen(m);
+            stage.close();
         });
 
         btDelete.setOnAction(e -> {
@@ -339,253 +413,187 @@ public class LibraryView extends Pane {
             stage.close();
         });
 
-        Rectangle rect = new Rectangle(50, 0, 125, Math.max(currentY + 40, 450));
-        rect.setFill(new LinearGradient(
-                rect.getX(), rect.getY(), // start x, y
-                rect.getX(), rect.getY() + rect.getHeight(), // end x, y
-                false,
-                CycleMethod.NO_CYCLE,
-                new Stop(0, m.getColor()), new Stop(1, m.getColor().darker())));
+        Rectangle rect = new Rectangle(50, 0, 125, 450);
 
-        mediaPane.getChildren().addAll(rect, btOK, btEdit, btDelete);
+        Pane pane = new Pane();
+        pane.getChildren().addAll(rect, vb);
 
-        ScrollPane scroll = new ScrollPane(mediaPane);
-        stage.setScene(new Scene(scroll, 800, 450));
-        stage.setTitle("View media: " + m.getName());
+        Scene scene = new Scene(new ScrollPane(pane), 800, 450);
+        scene.getStylesheets().add(css);
+        stage.setScene(scene);
         stage.setResizable(false);
+        stage.setTitle("View " + m.getClass().getSimpleName() + ": " + m.getName());
         stage.show();
+
+        // Sidebar positioned and filled after showing stage
+        rect.setHeight(Math.max(vb.getHeight(), 450));
+        rect.setFill(new LinearGradient(0, 0,0, 1, true, CycleMethod.NO_CYCLE,
+                new Stop(0, m.getColor()), new Stop(1, m.getColor().darker())));
     }
 
     /** Displays a screen to edit information about a piece of media */
     private void showEditScreen(Media m) {
-        Pane mediaPane = new Pane();
-        ScrollPane scroll = new ScrollPane(mediaPane);
+        final int wrapWidth = 200;
+
         Stage stage = new Stage();
+        VBox vb = new VBox(20);
+        vb.setLayoutX(200);
+        vb.setAlignment(Pos.CENTER_LEFT);
+        vb.setPadding(new Insets(10, 0, 20, 0));
 
-        Text errorText = new Text(200, 25, "");
-        errorText.setFill(Color.RED);
+        Pane pane = new Pane();
+        ScrollPane scroll = new ScrollPane(pane);
 
-        double currentY = 55;
-        double increment = 40;
+        GridPane mainGrid = new GridPane();
+        mainGrid.setVgap(15);
 
-        Text name = new Text(200, currentY, "Name: ");
-        TextField nameTF = new TextField();
-        nameTF.setText(m.getName());
-        nameTF.setLayoutX(350);
-        nameTF.setLayoutY(currentY - 15);
+        // Error text
+        Text errorText = new Text();
+        errorText.setStyle("-fx-fill: red;");
 
-        currentY += increment;
+        // Name of media
+        Text name = new Text("Name:");
+        name.setWrappingWidth(wrapWidth);
+        TextField nameTF = new TextField(m.getName());
 
-        Text genre = new Text(200, currentY, "Genre: ");
-        TextField genreTF = new TextField();
-        genreTF.setText(m.getGenre());
-        genreTF.setLayoutX(350);
-        genreTF.setLayoutY(currentY - 15);
+        // Genre
+        Text genre = new Text("Genre:");
+        genre.setWrappingWidth(wrapWidth);
+        TextField genreTF = new TextField(m.getGenre());
 
-        currentY += increment;
-
-        Text description = new Text(200, currentY, "Description: ");
-        TextArea descriptionTA = new TextArea();
-        descriptionTA.setText(m.getDescription());
-        descriptionTA.setPrefRowCount(3);
-        descriptionTA.setPrefColumnCount(20);
+        // Description
+        Text description = new Text("Description:");
+        description.setWrappingWidth(wrapWidth);
+        TextArea descriptionTA = new TextArea(m.getDescription());
         descriptionTA.setWrapText(true);
-        descriptionTA.setLayoutX(350);
-        descriptionTA.setLayoutY(currentY - 15);
+        descriptionTA.setPrefRowCount(3);
+        descriptionTA.setPrefColumnCount(19);
 
-        currentY += increment * 2;
+        // Format
+        Text format = new Text("Format:");
+        format.setWrappingWidth(wrapWidth);
+        TextField formatTF = new TextField(m.getFormat());
 
-        Text format = new Text(200, currentY, "Format: ");
-        TextField formatTF = new TextField();
-        formatTF.setText(m.getFormat());
-        formatTF.setLayoutX(350);
-        formatTF.setLayoutY(currentY - 15);
+        // Year released
+        Text year = new Text("Year released:");
+        year.setWrappingWidth(wrapWidth);
+        TextField yearTF = new TextField(m.getYear() + "");
 
-        currentY += increment;
+        // Year consumed
+        Text yearConsumed = new Text("Year consumed:");
+        yearConsumed.setWrappingWidth(wrapWidth);
+        TextField yearConsumedTF = new TextField(m.getYearConsumed() + "");
 
-        Text year = new Text(200, currentY, "Year released: ");
-        TextField yearTF = new TextField();
-        yearTF.setText(m.getYear() + "");
-        yearTF.setLayoutX(350);
-        yearTF.setLayoutY(currentY - 15);
+        // Rating out of 10
+        Text rating = new Text("Your rating out of 10:");
+        rating.setWrappingWidth(wrapWidth);
+        TextField ratingTF = new TextField(m.getRating() + "");
 
-        currentY += increment;
-
-        Text yearConsumed = new Text(200, currentY, "Year consumed: ");
-        TextField yearConsumedTF = new TextField();
-        yearConsumedTF.setText(m.getYearConsumed() + "");
-        yearConsumedTF.setLayoutX(350);
-        yearConsumedTF.setLayoutY(currentY - 15);
-
-        currentY += increment;
-
-        Text rating = new Text(200, currentY, "Your rating out of 10: ");
-        TextField ratingTF = new TextField();
-        ratingTF.setText(m.getRating() + "");
-        ratingTF.setLayoutX(350);
-        ratingTF.setLayoutY(currentY - 15);
-
-        currentY += increment;
-
-        Text color = new Text(200, currentY, "Color: ");
+        // Color
+        Text color = new Text("Color:");
+        color.setWrappingWidth(wrapWidth);
         ColorPicker colorPicker = new ColorPicker();
         colorPicker.setValue(m.getColor());
-        colorPicker.setPrefHeight(30);
-        colorPicker.setLayoutX(350);
-        colorPicker.setLayoutY(currentY - 20);
 
-        currentY += increment;
+        // Add columns
+        mainGrid.addColumn(0, name, genre, description, format, year, yearConsumed, rating, color);
+        mainGrid.addColumn(1, nameTF, genreTF, descriptionTA, formatTF, yearTF, yearConsumedTF, ratingTF, colorPicker);
 
-        Rectangle line = new Rectangle(200, currentY, 500, 3);
+        Rectangle line = new Rectangle(0, 0, 500, 3);
+        line.setFill(Color.WHITE);
 
-        currentY += increment;
+        GridPane subGrid = new GridPane();
+        subGrid.setVgap(15);
 
-        Text groupText = new Text(200, currentY, "Group: ");
+        Text groupText = new Text("Group:");
+        groupText.setWrappingWidth(wrapWidth);
         TextField groupTF = new TextField();
-        String group = library.getGroups().get(m);
+        groupTF.setPrefColumnCount(21);
+        String group = library.getGroup(m);
         groupTF.setText(group == null ? "" : group);
-        groupTF.setLayoutX(350);
-        groupTF.setLayoutY(currentY - 15);
-
-        mediaPane.getChildren().addAll(errorText, name, nameTF, genre, genreTF, description, descriptionTA, format, formatTF,
-                year, yearTF, yearConsumed, yearConsumedTF, rating, ratingTF, color, colorPicker, line, groupText, groupTF);
-
-        currentY += increment;
 
         // Type-specific fields
         // Movie fields
-        Text directorText = new Text("Director: ");
+        Text director = new Text("Director:");
+        director.setWrappingWidth(wrapWidth);
         TextField directorTF = new TextField();
 
-        Text durationText = new Text("Duration: ");
+        Text duration = new Text("Duration:");
+        duration.setWrappingWidth(wrapWidth);
         TextField durationTF = new TextField();
 
         // Show fields
-        Text creatorText = new Text("Creator: ");
+        Text creator = new Text("Creator:");
+        creator.setWrappingWidth(wrapWidth);
         TextField creatorTF = new TextField();
 
-        Text numSeasonsText = new Text("Number of seasons: ");
+        Text numSeasons = new Text("Number of seasons:");
+        numSeasons.setWrappingWidth(wrapWidth);
         TextField numSeasonsTF = new TextField();
 
-        Text numEpisodesText = new Text("Number of episodes: ");
+        Text numEpisodes = new Text("Number of episodes:");
+        numEpisodes.setWrappingWidth(wrapWidth);
         TextField numEpisodesTF = new TextField();
 
         // Game fields
-        Text developerText = new Text("Developer: ");
+        Text developer = new Text("Developer:");
+        developer.setWrappingWidth(wrapWidth);
         TextField developerTF = new TextField();
 
-        Text consoleText = new Text("Console: ");
+        Text console = new Text("Console:");
+        console.setWrappingWidth(wrapWidth);
         TextField consoleTF = new TextField();
 
-        Text numPlayersText = new Text("Number of players: ");
+        Text numPlayers = new Text("Number of players:");
+        numPlayers.setWrappingWidth(wrapWidth);
         TextField numPlayersTF = new TextField();
 
         // Music fields
-        Text artistText = new Text("Artist: ");
+        Text artist = new Text("Artist:");
+        artist.setWrappingWidth(wrapWidth);
         TextField artistTF = new TextField();
 
         // Book fields
-        Text authorText = new Text("Author: ");
+        Text author = new Text("Author:");
+        author.setWrappingWidth(wrapWidth);
         TextField authorTF = new TextField();
 
-        // Position and add type-specific fields
-        if (m instanceof Movie) {
-            directorText.setLayoutX(200);
-            directorText.setLayoutY(currentY);
-            directorTF.setLayoutX(350);
-            directorTF.setLayoutY(currentY - 15);
+        // Add type-specific fields
+        if (m  instanceof Movie) {
             directorTF.setText(((Movie) m).getDirector());
-
-            currentY += increment;
-
-            durationText.setLayoutX(200);
-            durationText.setLayoutY(currentY);
-            durationTF.setLayoutX(350);
-            durationTF.setLayoutY(currentY - 15);
             durationTF.setText(((Movie) m).getDuration() + "");
-
-            mediaPane.getChildren().addAll(directorText, directorTF, durationText, durationTF);
+            subGrid.addColumn(0, groupText, director, duration);
+            subGrid.addColumn(1, groupTF, directorTF, durationTF);
         } else if (m instanceof Show) {
-            creatorText.setLayoutX(200);
-            creatorText.setLayoutY(currentY);
-            creatorTF.setLayoutX(350);
-            creatorTF.setLayoutY(currentY - 15);
             creatorTF.setText(((Show) m).getCreator());
-
-            currentY += increment;
-
-            numSeasonsText.setLayoutX(200);
-            numSeasonsText.setLayoutY(currentY);
-            numSeasonsTF.setLayoutX(350);
-            numSeasonsTF.setLayoutY(currentY - 15);
             numSeasonsTF.setText(((Show) m).getNumSeasons() + "");
-
-            currentY += increment;
-
-            numEpisodesText.setLayoutX(200);
-            numEpisodesText.setLayoutY(currentY);
-            numEpisodesTF.setLayoutX(350);
-            numEpisodesTF.setLayoutY(currentY - 15);
             numEpisodesTF.setText(((Show) m).getNumEpisodes() + "");
-
-            mediaPane.getChildren().addAll(creatorText, creatorTF, numSeasonsText, numSeasonsTF,
-                    numEpisodesText, numEpisodesTF);
+            subGrid.addColumn(0, groupText, creator, numSeasons, numEpisodes);
+            subGrid.addColumn(1, groupTF, creatorTF, numSeasonsTF, numEpisodesTF);
         } else if (m instanceof Game) {
-            developerText.setLayoutX(200);
-            developerText.setLayoutY(currentY);
-            developerTF.setLayoutX(350);
-            developerTF.setLayoutY(currentY - 15);
             developerTF.setText(((Game) m).getDeveloper());
-
-            currentY += increment;
-
-            consoleText.setLayoutX(200);
-            consoleText.setLayoutY(currentY);
-            consoleTF.setLayoutX(350);
-            consoleTF.setLayoutY(currentY - 15);
             consoleTF.setText(((Game) m).getConsole());
-
-            currentY += increment;
-
-            numPlayersText.setLayoutX(200);
-            numPlayersText.setLayoutY(currentY);
-            numPlayersTF.setLayoutX(350);
-            numPlayersTF.setLayoutY(currentY - 15);
             numPlayersTF.setText(((Game) m).getNumPlayers() + "");
-
-            mediaPane.getChildren().addAll(developerText, developerTF, consoleText, consoleTF,
-                    numPlayersText, numPlayersTF);
+            subGrid.addColumn(0, groupText, developer, console, numPlayers);
+            subGrid.addColumn(1, groupTF, developerTF, consoleTF, numPlayersTF);
         } else if (m instanceof Music) {
-            artistText.setLayoutX(200);
-            artistText.setLayoutY(currentY);
-            artistTF.setLayoutX(350);
-            artistTF.setLayoutY(currentY - 15);
             artistTF.setText(((Music) m).getArtist());
-
-            mediaPane.getChildren().addAll(artistText, artistTF);
+            subGrid.addColumn(0, groupText, artist);
+            subGrid.addColumn(1, groupTF, artistTF);
         } else if (m instanceof Book) {
-            authorText.setLayoutX(200);
-            authorText.setLayoutY(currentY);
-            authorTF.setLayoutX(350);
-            authorTF.setLayoutY(currentY - 15);
             authorTF.setText(((Book) m).getAuthor());
-
-            mediaPane.getChildren().addAll(authorText, authorTF);
+            subGrid.addColumn(0, groupText, author);
+            subGrid.addColumn(1, groupTF, authorTF);
         }
 
-        currentY += increment;
-
+        // Buttons
+        HBox buttons = new HBox(10);
+        buttons.setAlignment(Pos.CENTER);
         Button btSave = new Button("Save");
-        btSave.setPrefWidth(60);
-        btSave.setLayoutX(335);
-        btSave.setLayoutY(currentY);
-
+        btSave.setPrefWidth(70);
         Button btCancel = new Button("Cancel");
-        btCancel.setPrefWidth(60);
-        btCancel.setLayoutX(405);
-        btCancel.setLayoutY(currentY);
-
-        mediaPane.getChildren().addAll(btSave, btCancel);
+        btCancel.setPrefWidth(70);
+        buttons.getChildren().addAll(btSave, btCancel);
 
         btCancel.setOnAction(e -> stage.close());
 
@@ -614,33 +622,38 @@ public class LibraryView extends Pane {
                             errorText.setText("Duration cannot be less than 0");
                             scroll.setVvalue(0);
                         } else { // Successful case
-                            saveState();
                             String dir = directorTF.getText();
                             int d = durationTF.getText().isBlank() ? 0 : Integer.parseInt(durationTF.getText());
 
-                            if (gr != null) {
-                                library.getGroups().remove(m);
+                            Media oldMovie = (Movie) m.clone(); // get original state of media
+                            String groupOld = library.getGroup(m);
+
+                            if (gr == null) { // remove from group if group text field is left empty
+                                library.removeFromGroup(m);
                             }
 
-                            m.setName(n);
-                            m.setGenre(g);
-                            m.setDescription(desc);
-                            m.setFormat(f);
-                            m.setYear(y);
-                            m.setYearConsumed(yc);
-                            m.setRating(r);
-                            m.setColorArray(c);
-                            ((Movie) m).setDirector(dir);
-                            ((Movie) m).setDuration(d);
+                            Movie newMovie = (Movie) m.clone();
+                            newMovie.setName(n);
+                            newMovie.setGenre(g);
+                            newMovie.setDescription(desc);
+                            newMovie.setFormat(f);
+                            newMovie.setYear(y);
+                            newMovie.setYearConsumed(yc);
+                            newMovie.setRating(r);
+                            newMovie.setColorArray(c);
+                            newMovie.setDirector(dir);
+                            newMovie.setDuration(d);
 
-                            if (gr != null) {
-                                library.getGroups().put(m, gr);
-                            }
+                            library.remove(m.getName(), m); // remove old version of entry
+                            library.add(n, newMovie); // add new version of entry
+                            library.addToGroup(newMovie, gr);
+
+                            pushAction(new Edit(library, oldMovie, (Movie) newMovie.clone(), groupOld, gr));
 
                             draw();
                             stage.close();
                             library.write();
-                            showViewScreen(m);
+                            showViewScreen(newMovie);
                         }
                     } else if (m instanceof Show) {
                         if (!numEpisodesTF.getText().isBlank() && Integer.parseInt(numEpisodesTF.getText()) < 0) {
@@ -650,155 +663,179 @@ public class LibraryView extends Pane {
                             errorText.setText("Number of seasons cannot be less than 0");
                             scroll.setVvalue(0);
                         } else {
-                            saveState();
                             String cr = creatorTF.getText();
                             int ns = numSeasonsTF.getText().isBlank() ? 0 : Integer.parseInt(numSeasonsTF.getText());
                             int ne = numEpisodesTF.getText().isBlank() ? 0 : Integer.parseInt(numEpisodesTF.getText());
 
-                            if (gr != null) {
-                                library.getGroups().remove(m);
+                            Media oldShow = (Show) m.clone(); // get original state of media
+                            String groupOld = library.getGroup(m);
+
+                            if (gr == null) {
+                                library.removeFromGroup(m);
                             }
 
-                            m.setName(n);
-                            m.setGenre(g);
-                            m.setDescription(desc);
-                            m.setFormat(f);
-                            m.setYear(y);
-                            m.setYearConsumed(yc);
-                            m.setRating(r);
-                            m.setColorArray(c);
-                            ((Show) m).setCreator(cr);
-                            ((Show) m).setNumSeasons(ns);
-                            ((Show) m).setNumEpisodes(ne);
+                            Show newShow = (Show) m.clone();
+                            newShow.setName(n);
+                            newShow.setGenre(g);
+                            newShow.setDescription(desc);
+                            newShow.setFormat(f);
+                            newShow.setYear(y);
+                            newShow.setYearConsumed(yc);
+                            newShow.setRating(r);
+                            newShow.setColorArray(c);
+                            newShow.setCreator(cr);
+                            newShow.setNumSeasons(ns);
+                            newShow.setNumEpisodes(ne);
 
-                            if (gr != null) {
-                                library.getGroups().put(m, gr);
-                            }
+                            library.remove(m.getName(), m); // remove old version of entry
+                            library.add(n, newShow); // add new version of entry
+                            library.addToGroup(newShow, gr);
+
+                            pushAction(new Edit(library, oldShow, (Show) newShow.clone(), groupOld, gr));
 
                             draw();
                             stage.close();
                             library.write();
-                            showViewScreen(m);
+                            showViewScreen(newShow);
                         }
                     } else if (m instanceof Game) {
                         if (!numPlayersTF.getText().isBlank() && Integer.parseInt(numPlayersTF.getText()) < 0) {
                             errorText.setText("Number of players cannot be less than 0");
                             scroll.setVvalue(0);
                         } else {
-                            saveState();
                             String dev = developerTF.getText();
                             String con = consoleTF.getText();
                             int np = numPlayersTF.getText().isBlank() ? 0 : Integer.parseInt(numPlayersTF.getText());
 
-                            if (gr != null) {
-                                library.getGroups().remove(m);
+                            Media oldGame = (Game) m.clone(); // get original state of media
+                            String groupOld = library.getGroup(m);
+
+                            if (gr == null) {
+                                library.removeFromGroup(m);
                             }
 
-                            m.setName(n);
-                            m.setGenre(g);
-                            m.setDescription(desc);
-                            m.setFormat(f);
-                            m.setYear(y);
-                            m.setYearConsumed(yc);
-                            m.setRating(r);
-                            m.setColorArray(c);
-                            ((Game) m).setDeveloper(dev);
-                            ((Game) m).setConsole(con);
-                            ((Game) m).setNumPlayers(np);
+                            Game newGame = (Game) m.clone();
+                            newGame.setName(n);
+                            newGame.setGenre(g);
+                            newGame.setDescription(desc);
+                            newGame.setFormat(f);
+                            newGame.setYear(y);
+                            newGame.setYearConsumed(yc);
+                            newGame.setRating(r);
+                            newGame.setColorArray(c);
+                            newGame.setDeveloper(dev);
+                            newGame.setConsole(con);
+                            newGame.setNumPlayers(np);
 
-                            if (gr != null) {
-                                library.getGroups().put(m, gr);
-                            }
+                            library.remove(m.getName(), m); // remove old version of entry
+                            library.add(n, newGame); // add new version of entry
+                            library.addToGroup(newGame, gr);
+
+                            pushAction(new Edit(library, oldGame, (Game) newGame.clone(), groupOld, gr));
 
                             draw();
                             stage.close();
                             library.write();
-                            showViewScreen(m);
+                            showViewScreen(newGame);
                         }
                     } else if (m instanceof Music) {
-                        saveState();
                         String art = artistTF.getText();
 
-                        if (gr != null) {
-                            library.getGroups().remove(m);
+                        Media oldMusic = (Music) m.clone(); // get original state of media
+                        String groupOld = library.getGroup(m);
+
+                        if (gr == null) {
+                            library.removeFromGroup(m);
                         }
 
-                        m.setName(n);
-                        m.setGenre(g);
-                        m.setDescription(desc);
-                        m.setFormat(f);
-                        m.setYear(y);
-                        m.setYearConsumed(yc);
-                        m.setRating(r);
-                        m.setColorArray(c);
-                        ((Music) m).setArtist(art);
+                        Music newMusic = (Music) m.clone();
+                        newMusic.setName(n);
+                        newMusic.setGenre(g);
+                        newMusic.setDescription(desc);
+                        newMusic.setFormat(f);
+                        newMusic.setYear(y);
+                        newMusic.setYearConsumed(yc);
+                        newMusic.setRating(r);
+                        newMusic.setColorArray(c);
+                        newMusic.setArtist(art);
 
-                        if (gr != null) {
-                            library.getGroups().put(m, gr);
-                        }
+                        library.remove(m.getName(), m); // remove old version of entry
+                        library.add(n, newMusic); // add new version of entry
+                        library.addToGroup(newMusic, gr);
+
+                        pushAction(new Edit(library, oldMusic, (Music) newMusic.clone(), groupOld, gr));
 
                         draw();
                         stage.close();
                         library.write();
-                        showViewScreen(m);
+                        showViewScreen(newMusic);
                     } else if (m instanceof Book) {
-                        saveState();
                         String auth = authorTF.getText();
 
-                        if (gr != null) {
-                            library.getGroups().remove(m);
+                        Media oldBook = (Book) m.clone(); // get original state of media
+                        String groupOld = library.getGroup(m);
+
+                        if (gr == null) {
+                            library.removeFromGroup(m);
                         }
 
-                        m.setName(n);
-                        m.setGenre(g);
-                        m.setDescription(desc);
-                        m.setFormat(f);
-                        m.setYear(y);
-                        m.setYearConsumed(yc);
-                        m.setRating(r);
-                        m.setColorArray(c);
-                        ((Book) m).setAuthor(auth);
+                        Book newBook = (Book) m.clone();
+                        newBook.setName(n);
+                        newBook.setGenre(g);
+                        newBook.setDescription(desc);
+                        newBook.setFormat(f);
+                        newBook.setYear(y);
+                        newBook.setYearConsumed(yc);
+                        newBook.setRating(r);
+                        newBook.setColorArray(c);
+                        newBook.setAuthor(auth);
 
-                        if (gr != null) {
-                            library.getGroups().put(m, gr);
-                        }
+                        library.remove(m.getName(), m); // remove old version of entry
+                        library.add(n, newBook); // add new version of entry
+                        library.addToGroup(newBook, gr);
+
+                        pushAction(new Edit(library, oldBook, (Book) newBook.clone(), groupOld, gr));
 
                         draw();
                         stage.close();
                         library.write();
-                        showViewScreen(m);
+                        showViewScreen(newBook);
                     }
                 }
             } catch (Exception ex) {
                 errorText.setText("Invalid input");
+                scroll.setVvalue(0);
             }
         });
 
-        Rectangle rect = new Rectangle(50, 0, 125, Math.max(currentY + 40, 450));
-        rect.setFill(new LinearGradient(
-                rect.getX(), rect.getY(), // start x, y
-                rect.getX(), rect.getY() + rect.getHeight(), // end x, y
-                false,
-                CycleMethod.NO_CYCLE,
-                new Stop(0, m.getColor()), new Stop(1, m.getColor().darker())));
+        vb.getChildren().addAll(errorText, mainGrid, line, subGrid, buttons);
 
-        mediaPane.getChildren().add(rect);
+        Rectangle rect = new Rectangle(50, 0, 125, 450);
 
-        stage.setScene(new Scene(scroll, 800, 450));
-        stage.setTitle("Edit media: " + m.getName());
+        pane.getChildren().addAll(rect, vb);
+
+        Scene scene = new Scene(scroll, 800, 450);
+        scene.getStylesheets().add(css);
+        stage.setScene(scene);
         stage.setResizable(false);
+        stage.setTitle("Edit " + m.getClass().getSimpleName() + ": " + m.getName());
         stage.show();
+
+        // Sidebar positioned and filled after showing stage
+        rect.setHeight(Math.max(vb.getHeight(), 450));
+        rect.setFill(new LinearGradient(0, 0,0, 1, true, CycleMethod.NO_CYCLE,
+                new Stop(0, m.getColor()), new Stop(1, m.getColor().darker())));
     }
 
     /** Returns a shortened String of a Text object */
-    private static String shortenName(Text t, int pixels) {
+    public static String shortenText(Text t, int pixels) {
         String name = t.getText();
         double length = calculateTextLength(t);
 
-        if (length > pixels) {
+        if (pixels < length) {
             // Calculate the percentage (between 0 and 1) of the name that can fit, multiply by
-            // the length of the Text object to find the maximum number of characters that fit
-            double limit = (270 / length) * name.length();
+            // the length of the string to find the maximum number of characters that fit
+            int limit = (int) Math.floor((pixels / length) * name.length());
             StringBuilder shortName = new StringBuilder();
 
             for (int i = 0; i < limit && i < name.length(); i++) {
@@ -813,43 +850,102 @@ public class LibraryView extends Pane {
         }
     }
 
-    /** Returns a deep copy of an ArrayList<Media> object */
-    private static ArrayList<Media> copy(ArrayList<Media> arr) {
-        try {
-            ArrayList<Media> newArr = new ArrayList<>();
-            for (Media m : arr) {
-                newArr.add((Media) m.clone());
-            }
-            return newArr;
-        } catch (Exception ex) {
-            return new ArrayList<>(arr); // Shallow copy
-        }
-    }
-
-    /** Returns a deep copy of a HashMap<Media, String> object */
-    private static HashMap<Media, String> copy(HashMap<Media, String> map) {
-        try {
-            HashMap<Media, String> newMap = new HashMap<>();
-            for (Media m : map.keySet()) {
-                newMap.put((Media) m.clone(), map.get(m));
-            }
-            return newMap;
-        } catch (Exception ex) {
-            return new HashMap<>(map); // Shallow copy
-        }
-    }
-
     /** Calculates length of a text object */
     public static double calculateTextLength(Text t) {
         if (t == null)
             return 0;
-        return t.getLayoutBounds().getMaxX() - t.getLayoutBounds().getMinX();
+        return t.getBoundsInLocal().getWidth();
     }
 
     /** Calculates the height of a text object */
     public static double calculateTextHeight(Text t) {
         if (t == null)
             return 0;
-        return t.getLayoutBounds().getMaxY() - t.getLayoutBounds().getMinY();
+        return t.getBoundsInLocal().getHeight();
+    }
+
+    // ----- COMMAND PATTERN IMPLEMENTATION ----- //
+    private interface Command {
+        void execute(); // perform an action
+        void unExecute(); // undo an action
+    }
+
+    private static class Add implements Command {
+        private final Library<Media> library;
+        private final Media media;
+
+        public Add(Library<Media> library, Media media) {
+            this.library = library;
+            this.media = media;
+        }
+
+        @Override
+        public void execute() {
+            library.add(media.getName(), media);
+        }
+
+        @Override
+        public void unExecute() {
+            library.remove(media.getName(), media);
+        }
+    }
+
+    private static class Remove implements Command {
+        private final Library<Media> library;
+        private final Media media;
+        private final String group;
+
+        public Remove(Library<Media> library, Media media) {
+            this.library = library;
+            this.media = media;
+            this.group = library.getGroup(media);
+        }
+
+        @Override
+        public void execute() {
+            library.remove(media.getName(), media);
+        }
+
+        @Override
+        public void unExecute() {
+            library.add(media.getName(), media);
+            if (group != null) {
+                library.addToGroup(media, group);
+            }
+        }
+    }
+
+    private static class Edit implements Command {
+        private final Library<Media> library;
+        private final Media mediaOld;
+        private final Media mediaNew;
+        private final String groupOld;
+        private final String groupNew;
+
+        public Edit(Library<Media> library, Media mediaOld, Media mediaNew, String groupOld, String groupNew) {
+            this.library = library;
+            this.mediaOld = mediaOld;
+            this.mediaNew = mediaNew;
+            this.groupOld = groupOld;
+            this.groupNew = groupNew;
+        }
+
+        @Override
+        public void execute() {
+            library.remove(mediaOld.getName(), mediaOld);
+            library.add(mediaNew.getName(), mediaNew);
+            if (groupNew != null) {
+                library.addToGroup(mediaNew, groupNew);
+            }
+        }
+
+        @Override
+        public void unExecute() {
+            library.remove(mediaNew.getName(), mediaNew);
+            library.add(mediaOld.getName(), mediaOld);
+            if (groupOld != null) {
+                library.addToGroup(mediaOld, groupOld);
+            }
+        }
     }
 }

@@ -14,17 +14,19 @@ import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
-import javafx.scene.paint.Color;
-import javafx.scene.text.*;
+import javafx.scene.text.Text;
+import javafx.scene.text.TextAlignment;
 import javafx.stage.Stage;
 
+import java.io.File;
 import java.time.Year;
+import java.util.ArrayList;
 import java.util.Comparator;
 
 public class MediaLibrary extends Application {
+    public static final String css = new File("./application.css").toURI().toString(); // css stylesheet
     private LibraryView view;
     private Library<Media> library;
-    private Comparator<Media> sortStyle;
     private static Text sizeText;
     private static Text titleText = new Text(350, 25, "");
 
@@ -32,59 +34,57 @@ public class MediaLibrary extends Application {
     @Override
     public void start(Stage primaryStage) {
         // ----- MAIN LIBRARY STAGE ----- //
-
         library = new Library<>();
         library.read(); // Read library from file
         library.sort(Comparator.comparing(Media::getDateAdded).reversed()); // Default sort: sort by date
 
+        // Build search tree
+        for (Media m : library) {
+            library.addToTree(m.getName(), m);
+        }
+
         view = new LibraryView(library);
         ScrollPane libScroll = new ScrollPane(view);
-        view.draw();
 
-        Pane top = new Pane();
-        top.setPadding(new Insets(7, 0, 0, 7));
+        HBox top = new HBox(70);
+        top.setPadding(new Insets(10, 10, 10, 10));
+        HBox topLeft = new HBox(10);
+        HBox topRight = new HBox(10);
+        StackPane topMiddle = new StackPane();
 
         Button btHome = new Button("Home");
-        btHome.setPrefWidth(50);
-        btHome.setLayoutX(10);
-        btHome.setLayoutY(5);
+        btHome.setTooltip(new Tooltip("Return home"));
+        btHome.setPrefWidth(65);
 
         Button btUndo = new Button("Undo");
         btUndo.setTooltip(new Tooltip("Undo previous action"));
-        btUndo.setPrefWidth(50);
-        btUndo.setLayoutX(100);
-        btUndo.setLayoutY(5);
+        btUndo.setPrefWidth(65);
 
         Button btRedo = new Button("Redo");
         btRedo.setTooltip(new Tooltip("Redo undone action"));
-        btRedo.setPrefWidth(50);
-        btRedo.setLayoutX(155);
-        btRedo.setLayoutY(5);
+        btRedo.setPrefWidth(65);
+        topLeft.getChildren().addAll(btHome, btUndo, btRedo);
         
         Button btAdd = new Button("+");
         btAdd.setTooltip(new Tooltip("Add new media"));
-        btAdd.setPrefWidth(25);
-        btAdd.setLayoutX(730);
-        btAdd.setLayoutY(5);
+        btAdd.setPrefWidth(30);
         
         Button btOther = new Button("...");
         btOther.setTooltip(new Tooltip("More options"));
         btOther.setPrefWidth(30);
-        btOther.setLayoutX(760);
-        btOther.setLayoutY(5);
-
-        setTitle("My Media Library");
 
         ComboBox<String> cboSort = new ComboBox<>();
-        cboSort.setLayoutX(545);
-        cboSort.setLayoutY(5);
-
         String[] sortOptions = {"Sort by Name", "Sort by Genre", "Sort by Format", "Sort by Rating",
                 "Sort by Color", "Sort by Year", "Sort by Year Consumed", "Sort by Date Added"};
         cboSort.getItems().addAll(sortOptions);
         cboSort.setValue("Sort by Date Added"); // Default sort
-        sortStyle = Comparator.comparing(Media::getDateAdded).reversed();
-        top.getChildren().addAll(btHome, btUndo, btRedo, btAdd, btOther, titleText, cboSort);
+        topRight.getChildren().addAll(cboSort, btAdd, btOther);
+        topMiddle.getChildren().add(titleText);
+
+        top.getChildren().addAll(topLeft, topMiddle, topRight);
+        top.setAlignment(Pos.CENTER);
+
+        setTitle("My Media Library");
 
         HBox bottom = new HBox(15);
         bottom.setPadding(new Insets(10, 10, 10, 10));
@@ -97,28 +97,29 @@ public class MediaLibrary extends Application {
         bp.setBottom(bottom);
 
         Scene scene = new Scene(bp, 800, 550);
+        scene.getStylesheets().add(css);
+
         primaryStage.setTitle("Media Library");
         primaryStage.setScene(scene);
-        primaryStage.setResizable(false);
         primaryStage.show();
+        view.draw(); // draw library
 
         btUndo.setOnAction(e -> {
             setTitle("My Media Library");
             view.undo();
-            library = view.getLibrary();
-            sizeText.setText("Library size: " + library.getSize());
+            setSize(library.getSize());
         });
 
         btRedo.setOnAction(e -> {
             setTitle("My Media Library");
             view.redo();
-            library = view.getLibrary();
-            sizeText.setText("Library size: " + library.getSize());
+            setSize(library.getSize());
         });
 
         btHome.setOnAction(e -> {
             setTitle("My Media Library");
             view.draw();
+            libScroll.setHvalue(0);
         });
 
         cboSort.setOnAction(e -> {
@@ -129,7 +130,7 @@ public class MediaLibrary extends Application {
         // ----- INITIAL "ADD" STAGE ----- //
 
         HBox addBoxTop = new HBox(15);
-        addBoxTop.setPadding(new Insets(15, 15, 15, 15));
+        addBoxTop.setPadding(new Insets(15, 15, 0, 15));
         addBoxTop.setAlignment(Pos.CENTER);
         Text addText = new Text("Select a type of media to add: ");
         String[] addOptions = {"Movie", "Show", "Game", "Music", "Book"};
@@ -139,7 +140,7 @@ public class MediaLibrary extends Application {
         addBoxTop.getChildren().addAll(addText, cboAdd);
 
         HBox addBoxBottom = new HBox(15);
-        addBoxBottom.setPadding(new Insets(15, 15, 15, 15));
+        addBoxBottom.setPadding(new Insets(0, 15, 15, 15));
         addBoxBottom.setAlignment(Pos.CENTER);
         Button btInitialAdd = new Button("OK");
         Button btInitialCancel = new Button("Cancel");
@@ -150,7 +151,8 @@ public class MediaLibrary extends Application {
         addBox.getChildren().addAll(addBoxTop, addBoxBottom);
 
         Stage addStage = new Stage();
-        Scene addScene = new Scene(addBox, 300, 150);
+        Scene addScene = new Scene(addBox, 360, 120);
+        addScene.getStylesheets().add(css);
         addStage.setResizable(false);
         addStage.setTitle("Add New Media");
         addStage.setScene(addScene);
@@ -174,29 +176,28 @@ public class MediaLibrary extends Application {
         otherText.setTextAlignment(TextAlignment.CENTER);
         otherHB.getChildren().add(otherText);
 
-        Pane otherPane = new Pane();
+        VBox other = new VBox(15);
+        other.setAlignment(Pos.CENTER);
 
-        Button btInfo = new Button("More Information");
+        Button btInfo = new Button("More information");
         btInfo.setPrefWidth(200);
-        btInfo.setLayoutX(50);
-        btInfo.setLayoutY(20);
 
         Button btGroup = new Button("Show a group");
         btGroup.setPrefWidth(200);
-        btGroup.setLayoutX(50);
-        btGroup.setLayoutY(60);
 
         Button btSearch = new Button("Search for an item");
         btSearch.setPrefWidth(200);
-        btSearch.setLayoutX(50);
-        btSearch.setLayoutY(100);
 
-        otherPane.getChildren().addAll(btInfo, btGroup, btSearch);
+        Button btClear = new Button("Clear library");
+        btClear.setPrefWidth(200);
+
+        other.getChildren().addAll(btInfo, btGroup, btSearch, btClear);
 
         BorderPane otherBP = new BorderPane();
         otherBP.setTop(otherHB);
-        otherBP.setCenter(otherPane);
-        Scene otherScene = new Scene(otherBP, 300, 200);
+        otherBP.setCenter(other);
+        Scene otherScene = new Scene(otherBP, 300, 250);
+        otherScene.getStylesheets().add(css);
         Stage otherStage = new Stage();
         otherStage.setScene(otherScene);
         otherStage.setResizable(false);
@@ -206,31 +207,25 @@ public class MediaLibrary extends Application {
 
         // ----- INFO STAGE ----- //
 
-        HBox infoHB = new HBox();
-        infoHB.setPadding(new Insets(10, 10, 10, 10));
-        infoHB.setAlignment(Pos.CENTER);
+        VBox infoVB = new VBox(20);
+        infoVB.setPadding(new Insets(10, 10, 10, 10));
+        infoVB.setAlignment(Pos.CENTER);
         Text infoTitleText = new Text("More Information");
         infoTitleText.setTextAlignment(TextAlignment.CENTER);
-        infoHB.getChildren().add(infoTitleText);
 
-        Pane infoPane = new Pane();
         Text infoText = new Text(30, 20, "This program allows you to compile various media into one " +
                 "visually cohesive library. Use the \"+\" button in the top-right corner to add a new media entry. " +
                 "To edit or remove a media entry, click on the desired entry and scroll down, or right-click the " +
                 "media entry and choose the desired option.");
-        infoText.setWrappingWidth(240);
+        infoText.setWrappingWidth(300);
         Button btInfoOK = new Button("OK");
         btInfoOK.setPrefWidth(60);
-        btInfoOK.setLayoutX(120);
-        btInfoOK.setLayoutY(LibraryView.calculateTextHeight(infoText) + 50);
-        infoPane.getChildren().addAll(infoText, btInfoOK);
-
-        BorderPane infoBP = new BorderPane();
-        infoBP.setTop(infoHB);
-        infoBP.setCenter(infoPane);
+        infoVB.getChildren().addAll(infoTitleText, infoText, btInfoOK);
 
         Stage infoStage = new Stage();
-        infoStage.setScene(new Scene(infoBP, 300, LibraryView.calculateTextHeight(infoText) + 130));
+        Scene infoScene = new Scene(infoVB, 400, 300);
+        infoScene.getStylesheets().add(css);
+        infoStage.setScene(infoScene);
         infoStage.setTitle("More Information");
         infoStage.setResizable(false);
         btInfo.setOnAction(e -> infoStage.show());
@@ -239,33 +234,32 @@ public class MediaLibrary extends Application {
         // ----- GROUP SEARCH STAGE ----- //
 
         HBox groupSearchHB = new HBox();
-        groupSearchHB.setPadding(new Insets(10, 10, 10, 10));
+        groupSearchHB.setPadding(new Insets(10, 10, 0, 10));
         groupSearchHB.setAlignment(Pos.CENTER);
         Text groupSearchText = new Text("Search for a group:");
         groupSearchText.setTextAlignment(TextAlignment.CENTER);
         groupSearchHB.getChildren().add(groupSearchText);
 
-        Pane groupSearchPane = new Pane();
+        HBox groupSearchBox = new HBox(10);
+        groupSearchBox.setAlignment(Pos.CENTER);
 
         TextField groupSearchTF = new TextField();
         groupSearchTF.setPromptText("Type a group...");
-        groupSearchTF.setPrefWidth(130);
-        groupSearchTF.setLayoutX(50);
-        groupSearchTF.setLayoutY(10);
+        groupSearchTF.setPrefWidth(150);
 
         Button btGroupSearch = new Button("Search");
-        btGroupSearch.setPrefWidth(60);
-        btGroupSearch.setLayoutX(190);
-        btGroupSearch.setLayoutY(10);
+        btGroupSearch.setPrefWidth(80);
 
-        groupSearchPane.getChildren().addAll(groupSearchTF, btGroupSearch);
+        groupSearchBox.getChildren().addAll(groupSearchTF, btGroupSearch);
 
         BorderPane groupSearchBP = new BorderPane();
         groupSearchBP.setTop(groupSearchHB);
-        groupSearchBP.setCenter(groupSearchPane);
+        groupSearchBP.setCenter(groupSearchBox);
 
         Stage groupSearchStage = new Stage();
-        groupSearchStage.setScene(new Scene(groupSearchBP, 300, 100));
+        Scene groupSearchScene = new Scene(groupSearchBP, 350, 120);
+        groupSearchScene.getStylesheets().add(css);
+        groupSearchStage.setScene(groupSearchScene);
         groupSearchStage.setTitle("Group Search");
         groupSearchStage.setResizable(false);
         btGroup.setOnAction(e -> {
@@ -277,34 +271,32 @@ public class MediaLibrary extends Application {
             setTitle("Group: " + groupSearchTF.getText());
             groupSearchStage.close();
             view.drawGroup(groupSearchTF.getText());
+            libScroll.setHvalue(0);
         });
         
         // ----- GENERAL SEARCH STAGE ----- //
 
         HBox generalSearchHB = new HBox();
-        generalSearchHB.setPadding(new Insets(10, 10, 10, 10));
+        generalSearchHB.setPadding(new Insets(10, 10, 0, 10));
         generalSearchHB.setAlignment(Pos.CENTER);
         Text generalSearchText = new Text("Search for an item:");
         generalSearchText.setTextAlignment(TextAlignment.CENTER);
         generalSearchHB.getChildren().add(generalSearchText);
 
-        Pane generalSearchPane = new Pane();
+        HBox generalSearchBox = new HBox(10);
+        generalSearchBox.setAlignment(Pos.CENTER);
 
         TextField generalSearchTF = new TextField();
         generalSearchTF.setPromptText("Type a name...");
-        generalSearchTF.setPrefWidth(130);
-        generalSearchTF.setLayoutX(50);
-        generalSearchTF.setLayoutY(10);
+        generalSearchTF.setPrefWidth(140);
 
         Button btGeneralSearch = new Button("Search");
-        btGeneralSearch.setPrefWidth(60);
-        btGeneralSearch.setLayoutX(190);
-        btGeneralSearch.setLayoutY(10);
+        btGeneralSearch.setPrefWidth(80);
 
-        generalSearchPane.getChildren().addAll(generalSearchTF, btGeneralSearch);
+        generalSearchBox.getChildren().addAll(generalSearchTF, btGeneralSearch);
 
         FlowPane generalSearchOptions = new FlowPane();
-        generalSearchOptions.setPadding(new Insets(10, 10, 10, 10));
+        generalSearchOptions.setPadding(new Insets(0, 10, 10, 10));
         generalSearchOptions.setAlignment(Pos.CENTER);
         generalSearchOptions.setHgap(10);
         generalSearchOptions.setVgap(10);
@@ -322,11 +314,13 @@ public class MediaLibrary extends Application {
 
         BorderPane generalSearchBP = new BorderPane();
         generalSearchBP.setTop(generalSearchHB);
-        generalSearchBP.setCenter(generalSearchPane);
+        generalSearchBP.setCenter(generalSearchBox);
         generalSearchBP.setBottom(generalSearchOptions);
 
         Stage generalSearchStage = new Stage();
-        generalSearchStage.setScene(new Scene(generalSearchBP, 300, 160));
+        Scene generalSearchScene = new Scene(generalSearchBP, 300, 200);
+        generalSearchScene.getStylesheets().add(css);
+        generalSearchStage.setScene(generalSearchScene);
         generalSearchStage.setTitle("General Search");
         generalSearchStage.setResizable(false);
         btSearch.setOnAction(e -> {
@@ -335,8 +329,82 @@ public class MediaLibrary extends Application {
         });
 
         btGeneralSearch.setOnAction(e -> {
-            // general search
+            generalSearchStage.close();
+
+            // Set up exclusion list
+            ArrayList<String> exclude = new ArrayList<>();
+            if (!chkMovie.isSelected()) {
+                exclude.add("Movie");
+            }
+            if (!chkShow.isSelected()) {
+                exclude.add("Show");
+            }
+            if (!chkGame.isSelected()) {
+                exclude.add("Game");
+            }
+            if (!chkMusic.isSelected()) {
+                exclude.add("Music");
+            }
+            if (!chkBook.isSelected()) {
+                exclude.add("Book");
+            }
+
+            ArrayList<Media> results = library.treeSearch(generalSearchTF.getText().toLowerCase());
+            if (results != null) {
+                // Remove all results whose classes have been excluded
+                results.removeIf(m -> exclude.contains(m.getClass().getSimpleName()));
+            }
+
+            if (results == null || results.isEmpty()) {
+                showPopup("No results were found with your search criteria.");
+            } else {
+                view.draw(results);
+                setTitle("Search: " + generalSearchTF.getText());
+                libScroll.setHvalue(0);
+            }
         });
+
+        // ----- CLEAR STAGE ----- //
+
+        BorderPane clearBP = new BorderPane();
+        HBox clearTop = new HBox();
+        clearTop.setPadding(new Insets(15, 15, 15, 15));
+        clearTop.setAlignment(Pos.CENTER);
+        Text text = new Text("Are you sure you want to clear your library? This cannot be undone.");
+        text.setWrappingWidth(250);
+        text.setTextAlignment(TextAlignment.CENTER);
+        clearTop.getChildren().add(text);
+
+        HBox clearBottom = new HBox(10);
+        clearBottom.setPadding(new Insets(15, 15, 15, 15));
+        clearBottom.setAlignment(Pos.CENTER);
+        Button btClearOK = new Button("Clear");
+        Button btClearCancel = new Button("Cancel");
+        clearBottom.getChildren().addAll(btClearOK, btClearCancel);
+
+        clearBP.setTop(clearTop);
+        clearBP.setBottom(clearBottom);
+        Scene clearScene = new Scene(clearBP, 300, 160);
+        clearScene.getStylesheets().add(css);
+
+        Stage clearStage = new Stage();
+        clearStage.setScene(clearScene);
+        clearStage.setTitle("Clear library?");
+        clearStage.setResizable(false);
+
+        btClear.setOnAction(e -> {
+            otherStage.close();
+            clearStage.show();
+        });
+
+        btClearOK.setOnAction(e -> {
+            library.clear();
+            view.draw();
+            setSize(library.getSize());
+            clearStage.close();
+        });
+
+        btClearCancel.setOnAction(e -> clearStage.close());
     }
 
     /** Show a stage to add media */
@@ -376,18 +444,17 @@ public class MediaLibrary extends Application {
 
         Text color = new Text("Color: ");
         ColorPicker colorPicker = new ColorPicker();
-        colorPicker.setPrefHeight(30);
 
         Button btAdd = new Button("Add");
         Button btCancel = new Button("Cancel");
         HBox addButtons = new HBox(30);
         addButtons.getChildren().addAll(btAdd, btCancel);
         addButtons.setAlignment(Pos.CENTER);
-        addButtons.setPadding(new Insets(15, 15, 30, 15));
+        addButtons.setPadding(new Insets(0, 15, 30, 15));
         HBox addError = new HBox(15);
         addError.setAlignment(Pos.CENTER);
         Text errorText = new Text("");
-        errorText.setFill(Color.RED);
+        errorText.setStyle("-fx-fill: red;");
         addError.getChildren().add(errorText);
         VBox addBottom = new VBox(15);
         addBottom.getChildren().addAll(addError, addButtons);
@@ -397,7 +464,7 @@ public class MediaLibrary extends Application {
         add.setBottom(addBottom);
         HBox addTop = new HBox(15);
         addTop.setAlignment(Pos.CENTER);
-        addTop.setPadding(new Insets(15, 15, 15, 25));
+        addTop.setPadding(new Insets(15, 15, 0, 15));
         Text movieAddText = new Text("Add New " + type);
         addTop.getChildren().add(movieAddText);
         add.setTop(addTop);
@@ -436,7 +503,7 @@ public class MediaLibrary extends Application {
         double height = 0;
         switch (type) {
             case "Movie":
-                height = 630;
+                height = 660;
 
                 addGrid.addColumn(0, name, genre, director, duration, description,
                         format, year, yearConsumed, rating, color);
@@ -444,7 +511,7 @@ public class MediaLibrary extends Application {
                         formatTF, yearTF, yearConsumedTF, ratingTF, colorPicker);
                 break;
             case "Show":
-                height = 650;
+                height = 710;
 
                 addGrid.addColumn(0, name, genre, creator, numSeasons, numEpisodes, description,
                         format, year, yearConsumed, rating, color);
@@ -452,7 +519,7 @@ public class MediaLibrary extends Application {
                         descriptionTA, formatTF, yearTF, yearConsumedTF, ratingTF, colorPicker);
                 break;
             case "Game":
-                height = 650;
+                height = 710;
 
                 addGrid.addColumn(0, name, genre, developer, console, numPlayers, description,
                         format, year, yearConsumed, rating, color);
@@ -460,7 +527,7 @@ public class MediaLibrary extends Application {
                         descriptionTA, formatTF, yearTF, yearConsumedTF, ratingTF, colorPicker);
                 break;
             case "Music":
-                height = 600;
+                height = 610;
 
                 addGrid.addColumn(0, name, genre, artist, description, format, year,
                         yearConsumed, rating, color);
@@ -468,7 +535,7 @@ public class MediaLibrary extends Application {
                         yearTF, yearConsumedTF, ratingTF, colorPicker);
                 break;
             case "Book":
-                height = 600;
+                height = 610;
 
                 addGrid.addColumn(0, name, genre, author, description, format, year,
                         yearConsumed, rating, color);
@@ -505,6 +572,7 @@ public class MediaLibrary extends Application {
                                 int d = durationTF.getText().isBlank() ? 0 : Integer.parseInt(durationTF.getText());
 
                                 view.add(new Movie(n, g, desc, f, y, yc, r, c, dir, d));
+                                setSize(library.getSize());
                                 stage.close();
                             }
                             break;
@@ -519,6 +587,7 @@ public class MediaLibrary extends Application {
                                 int ne = numEpisodesTF.getText().isBlank() ? 0 : Integer.parseInt(numEpisodesTF.getText());
 
                                 view.add(new Show(n, g, desc, f, y, yc, r, c, cr, ns, ne));
+                                setSize(library.getSize());
                                 stage.close();
                             }
                             break;
@@ -531,6 +600,7 @@ public class MediaLibrary extends Application {
                                 int np = numPlayersTF.getText().isBlank() ? 0 : Integer.parseInt(numPlayersTF.getText());
 
                                 view.add(new Game(n, g, desc, f, y, yc, r, c, dev, con, np));
+                                setSize(library.getSize());
                                 stage.close();
                             }
                             break;
@@ -538,12 +608,14 @@ public class MediaLibrary extends Application {
                             String art = artistTF.getText();
 
                             view.add(new Music(n, g, desc, f, y, yc, r, c, art));
+                            setSize(library.getSize());
                             stage.close();
                             break;
                         case "Book":
                             String auth = authorTF.getText();
 
                             view.add(new Book(n, g, desc, f, y, yc, r, c, auth));
+                            setSize(library.getSize());
                             stage.close();
                             break;
                     }
@@ -554,13 +626,47 @@ public class MediaLibrary extends Application {
         });
 
         btCancel.setOnAction(e -> stage.close());
+        Scene scene = new Scene(add, 400, height);
+        scene.getStylesheets().add(css);
 
-        stage.setScene(new Scene(add, 400, height));
+        stage.setScene(scene);
         stage.setTitle("Add New " + type);
         stage.setResizable(false);
         stage.show();
     }
 
+    /** Displays a popup with a specified message */
+    public void showPopup(String t) {
+        BorderPane bp = new BorderPane();
+        HBox top = new HBox();
+        top.setPadding(new Insets(15, 15, 15, 15));
+        top.setAlignment(Pos.CENTER);
+        Text text = new Text(t);
+        text.setWrappingWidth(250);
+        text.setTextAlignment(TextAlignment.CENTER);
+        top.getChildren().add(text);
+
+        HBox bottom = new HBox();
+        bottom.setPadding(new Insets(15, 15, 15, 15));
+        bottom.setAlignment(Pos.CENTER);
+        Button btOK = new Button("OK");
+        bottom.getChildren().add(btOK);
+
+        bp.setTop(top);
+        bp.setBottom(bottom);
+
+        Stage stage = new Stage();
+        stage.setResizable(false);
+        stage.setTitle("Alert");
+        Scene scene = new Scene(bp, 300, LibraryView.calculateTextHeight(text) + 120);
+        scene.getStylesheets().add(css);
+        stage.setScene(scene);
+        stage.show();
+
+        btOK.setOnAction(e -> stage.close());
+    }
+
+    /** Sorts a Library of Media by a specified means */
     public static void sortLibrary(Library<Media> lib, String sortBy) {
         switch (sortBy) {
             case "Sort by Name":
@@ -576,9 +682,9 @@ public class MediaLibrary extends Application {
                 lib.sort(Comparator.comparing(Media::getRating).reversed());
                 break;
             case "Sort by Color":
-                lib.sort(Comparator.comparing((Media m) -> (int) m.getColor().getHue())
-                        .thenComparing((Media m) -> (int) m.getColor().getSaturation())
-                        .thenComparing((Media m) -> (int) m.getColor().getBrightness()));
+                lib.sort(Comparator.comparing((Media m) -> m.getColor().getHue())
+                        .thenComparing((Media m) -> m.getColor().getSaturation())
+                        .thenComparing((Media m) -> m.getColor().getBrightness()));
                 break;
             case "Sort by Year":
                 lib.sort(Comparator.comparing(Media::getYear));
@@ -588,6 +694,7 @@ public class MediaLibrary extends Application {
                 break;
             default:
                 lib.sort(Comparator.comparing(Media::getDateAdded).reversed());
+                break;
         }
     }
 
@@ -596,6 +703,7 @@ public class MediaLibrary extends Application {
     }
 
     public static void setTitle(String title) {
-        titleText.setText(title);
+        String shortenedTitle = LibraryView.shortenText(new Text(title), 130);
+        titleText.setText(shortenedTitle);
     }
 }

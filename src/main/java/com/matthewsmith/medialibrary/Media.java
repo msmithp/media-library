@@ -26,7 +26,7 @@ public class Media implements Serializable, Cloneable {
     private int yearConsumed;
     private double rating;
     private double[] color; // R, G, B, and opacity values
-    private Date dateAdded = new Date();
+    private final Date dateAdded = new Date();
 
     public Media(String name) {
         this(name, "", "", "", Year.now().getValue(), Year.now().getValue(), 0, new double[4]);
@@ -147,8 +147,12 @@ public class Media implements Serializable, Cloneable {
     }
 
     @Override
-    public Object clone() throws CloneNotSupportedException {
-        return super.clone();
+    public Object clone() {
+        try {
+            return super.clone();
+        } catch (Exception ex) {
+            return this; // shallow copy
+        }
     }
 
     @Override

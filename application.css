@@ -1,0 +1,169 @@
+/* Title: application
+Author: Matthew Smith
+Course Section: CMIS202-ONL1 (Seidel) Spring 2023
+File: application.css
+Description: CSS stylesheet for use in MediaLibrary */
+
+@import url('https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Manrope:wght@700&family=Poppins:ital@0;1&display=swap');
+
+/* ROOT */
+
+.root {
+    -fx-background: #1b1b1c;
+}
+
+/* SCROLL PANE */
+
+.scroll-pane {
+    -fx-background-color: #222224;
+    -fx-background: #222224;
+    -fx-text-fill: red;
+}
+
+.scroll-pane > .corner {
+    -fx-background-color: #282336;
+}
+
+/* SCROLL BAR */
+
+.scroll-bar, .scroll-bar .increment-button, .scroll-bar .decrement-button {
+    -fx-background-color: #3b3254;
+    -fx-border-color: #3b3254;
+    -fx-padding: 3px;
+}
+
+.scroll-bar .thumb {
+    -fx-background-color: #6B5A99;
+}
+
+.scroll-bar .increment-arrow, .scroll-bar .decrement-arrow {
+    -fx-background-color: white;
+}
+
+/* COMBO BOX */
+
+.combo-box-base {
+    -fx-background-color: #56497A;
+    -fx-background-radius: 5px;
+}
+
+.combo-box-base: hover {
+    -fx-background-color: #3B3254;
+}
+
+.combo-box-popup .list-view {
+    -fx-background-color: #56497A;
+}
+
+.combo-box-popup .list-view .list-cell:filled:selected {
+    -fx-background-color: #34206E;
+}
+
+.combo-box .list-cell {
+    -fx-text-fill: white;
+    -fx-background-color: #56497A;
+    -fx-font-size: 1.2em;
+    -fx-background-radius: 5px;
+}
+
+.combo-box .list-cell: hover {
+    -fx-background-color: #3B3254;
+}
+
+.combo-box .arrow {
+    -fx-background-color: white;
+}
+
+/* CHECK BOX */
+
+.check-box .box {
+    -fx-background-color: #38354A;
+    -fx-border-color: #8D7AF5;
+    -fx-border-radius: 5px;
+}
+
+.check-box .box:hover {
+    -fx-background-color: #545070;
+}
+
+.check-box:selected .box {
+    -fx-background-color: #4733B8;
+}
+
+.check-box:selected .mark {
+    -fx-background-color: white;
+}
+
+.check-box .text {
+    -fx-font-family: "Poppins";
+    -fx-font-size: 1.2em;
+}
+
+/* COLOR PICKER */
+
+.color-picker {
+    -fx-pref-height: 30px;
+}
+
+.color-picker-label .text {
+    -fx-fill: white;
+}
+
+/* TEXT */
+
+Text {
+    -fx-fill: white;
+    -fx-font-family: "Poppins";
+    -fx-font-style: normal;
+    -fx-font-size: 1.2em;
+    -fx-font-weight: 400;
+}
+
+/* TEXT INPUT */
+
+.text-field, .text-area {
+    -fx-text-fill: white;
+    -fx-font-family: "Poppins";
+    -fx-font-size: 14;
+    -fx-control-inner-background: #4B4978;
+    -fx-background-radius: 5px;
+    -fx-highlight-fill: #7F75EB;
+    -fx-highlight-text-fill: #35333D;
+    -fx-prompt-text-fill: #8D87AD;
+}
+
+.text-field:focused, .text-area:focused {
+    -fx-focus-color: #8d7af5;
+}
+
+/* BUTTON */
+
+.button {
+    -fx-text-fill: white;
+    -fx-font-family: "Poppins";
+    -fx-font-size: 1.2em;
+    -fx-background-color: #56497A;
+    -fx-background-radius: 5px;
+}
+
+.button:hover {
+    -fx-background-color: #3B3254;
+}
+
+/* CUSTOM STYLES */
+
+.title {
+    -fx-font-family: "Dela Gothic One";
+    -fx-font-size: 4.2em;
+    -fx-line-spacing: -1.5em;
+}
+
+.group {
+    -fx-font-style: italic;
+}
+
+.entry {
+    -fx-font-family: "Manrope";
+    -fx-font-weight: bold;
+    -fx-font-size: 18;
+}
