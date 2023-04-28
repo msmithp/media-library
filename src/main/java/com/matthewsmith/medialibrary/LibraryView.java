@@ -34,14 +34,11 @@ import java.util.Stack;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.RecursiveAction;
 
-import static com.matthewsmith.medialibrary.MediaLibrary.css;
-
 public class LibraryView extends Pane {
     private final Library<Media> library;
     private final Stack<Command> history; // History of user actions, for undo function
     private final Stack<Command> undoHistory; // History of undone actions, for redo function
-    private final double WIDTH = 798;
-    private final double HEIGHT = 467;
+    private final ArrayList<String> excludeList = new ArrayList<>(); // list of excluded classes when drawing
 
     /** Creates an empty LibraryView */
     public LibraryView() {
@@ -94,6 +91,26 @@ public class LibraryView extends Pane {
         }
     }
 
+    /** Add a filter to the exclude list */
+    public void addFilter(String className) {
+        if (!excludeList.contains(className)) {
+            this.excludeList.add(className);
+            draw();
+        }
+    }
+
+    /** Remove a filter from the exclude list */
+    public void removeFilter(String className) {
+        this.excludeList.remove(className);
+        draw();
+    }
+
+    /** Reset exclude list to exclude no types */
+    public void resetFilters() {
+        this.excludeList.clear();
+        draw();
+    }
+
     /** Saves current state of library to history stack */
     private void pushAction(Command action) {
         history.push(action);
@@ -107,7 +124,16 @@ public class LibraryView extends Pane {
 
     /** Draws the library */
     public void draw() {
-        draw(library.getMedia());
+        ArrayList<Media> filteredList = new ArrayList<>();
+
+        // Apply filter to all media in library
+        for (int i = 0; i < library.getSize(); i++) {
+            Media m = library.getMedia().get(i);
+            if (!excludeList.contains(m.getClass().getSimpleName())) {
+                filteredList.add(m);
+            }
+        }
+        draw(filteredList);
     }
 
     /** DrawTask class for parallel draw method implementation */
@@ -127,8 +153,11 @@ public class LibraryView extends Pane {
         protected void compute() {
             if (end - start < THRESHOLD) {
                 for (int i = start; i < end; i++) {
-                    int x = (i * 80) + 60;
-                    drawEntry(list.get(i), x);
+                    // Check if media class is being filtered
+                    if (!excludeList.contains(list.get(i).getClass().getSimpleName())) {
+                        int x = (i * 80) + 60;
+                        drawEntry(list.get(i), x);
+                    }
                 }
             } else {
                 int middle = (start + end) / 2;
@@ -181,8 +210,7 @@ public class LibraryView extends Pane {
 
         // Draw shelf bar to be either the width of the full screen or
         // the width of the entire library, whichever is larger
-        Rectangle bar = new Rectangle(0, HEIGHT - 70,
-                Math.max(screenWidth, 105 + 80 * numEntries), 15);
+        Rectangle bar = new Rectangle(0, 397, Math.max(screenWidth, 105 + 80 * numEntries), 15);
         bar.setFill(Color.WHITE);
         this.getChildren().add(bar);
     }
@@ -394,9 +422,11 @@ public class LibraryView extends Pane {
         btEdit.setPrefWidth(70);
         Button btDelete = new Button("Delete");
         btDelete.setPrefWidth(70);
+        Button btSimilar = new Button("Find Similar Media");
+        btSimilar.setPrefWidth(150);
         HBox buttons = new HBox(10);
         buttons.setAlignment(Pos.CENTER);
-        buttons.getChildren().addAll(btOK, btEdit, btDelete);
+        buttons.getChildren().addAll(btOK, btEdit, btDelete, btSimilar);
 
         vb.getChildren().addAll(date, buttons);
 
@@ -413,13 +443,18 @@ public class LibraryView extends Pane {
             stage.close();
         });
 
+        btSimilar.setOnAction(e -> {
+            showSimilarMedia(m);
+            stage.close();
+        });
+
         Rectangle rect = new Rectangle(50, 0, 125, 450);
 
         Pane pane = new Pane();
         pane.getChildren().addAll(rect, vb);
 
         Scene scene = new Scene(new ScrollPane(pane), 800, 450);
-        scene.getStylesheets().add(css);
+        scene.getStylesheets().add(MediaLibrary.css);
         stage.setScene(scene);
         stage.setResizable(false);
         stage.setTitle("View " + m.getClass().getSimpleName() + ": " + m.getName());
@@ -602,7 +637,7 @@ public class LibraryView extends Pane {
                 if (nameTF.getText().isBlank()) {
                     errorText.setText("You must enter a " + m.getClass().getSimpleName() + " name");
                     scroll.setVvalue(0);
-                } else if (!ratingTF.getText().isBlank() && Media.validateRating(Double.parseDouble(ratingTF.getText()))) {
+                } else if (!ratingTF.getText().isBlank() && !Media.validateRating(Double.parseDouble(ratingTF.getText()))) {
                     errorText.setText("Rating must be between 0 and 10");
                     scroll.setVvalue(0);
                 } else {
@@ -815,7 +850,7 @@ public class LibraryView extends Pane {
         pane.getChildren().addAll(rect, vb);
 
         Scene scene = new Scene(scroll, 800, 450);
-        scene.getStylesheets().add(css);
+        scene.getStylesheets().add(MediaLibrary.css);
         stage.setScene(scene);
         stage.setResizable(false);
         stage.setTitle("Edit " + m.getClass().getSimpleName() + ": " + m.getName());
@@ -825,6 +860,38 @@ public class LibraryView extends Pane {
         rect.setHeight(Math.max(vb.getHeight(), 450));
         rect.setFill(new LinearGradient(0, 0,0, 1, true, CycleMethod.NO_CYCLE,
                 new Stop(0, m.getColor()), new Stop(1, m.getColor().darker())));
+    }
+
+    private void showSimilarMedia(Media m) {
+        Stage stage = new Stage();
+        BubbleDiagramPane similar = new BubbleDiagramPane(library, m);
+
+        Button btOK = new Button("OK");
+        btOK.setPrefWidth(70);
+        Button btBack = new Button("Back");
+        btBack.setPrefWidth(70);
+        HBox buttons = new HBox(10);
+        buttons.setPadding(new Insets(10));
+        buttons.setAlignment(Pos.CENTER);
+        buttons.getChildren().addAll(btOK, btBack);
+
+        BorderPane bp = new BorderPane();
+        bp.setCenter(similar);
+        bp.setBottom(buttons);
+
+        btOK.setOnAction(e -> stage.close());
+        btBack.setOnAction(e -> {
+            stage.close();
+            showViewScreen(m);
+        });
+
+        Scene scene = new Scene(bp, 800, 800);
+        scene.getStylesheets().add(MediaLibrary.css);
+
+        stage.setTitle("Similar Media: " + m.getName());
+        stage.setScene(scene);
+        stage.setResizable(false);
+        stage.show();
     }
 
     /** Returns a shortened String of a Text object */

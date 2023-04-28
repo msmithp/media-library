@@ -182,6 +182,9 @@ public class MediaLibrary extends Application {
         Button btInfo = new Button("More information");
         btInfo.setPrefWidth(200);
 
+        Button btFilter = new Button("Filter by type");
+        btFilter.setPrefWidth(200);
+
         Button btGroup = new Button("Show a group");
         btGroup.setPrefWidth(200);
 
@@ -191,12 +194,12 @@ public class MediaLibrary extends Application {
         Button btClear = new Button("Clear library");
         btClear.setPrefWidth(200);
 
-        other.getChildren().addAll(btInfo, btGroup, btSearch, btClear);
+        other.getChildren().addAll(btInfo, btFilter, btGroup, btSearch, btClear);
 
         BorderPane otherBP = new BorderPane();
         otherBP.setTop(otherHB);
         otherBP.setCenter(other);
-        Scene otherScene = new Scene(otherBP, 300, 250);
+        Scene otherScene = new Scene(otherBP, 300, 280);
         otherScene.getStylesheets().add(css);
         Stage otherStage = new Stage();
         otherStage.setScene(otherScene);
@@ -230,6 +233,108 @@ public class MediaLibrary extends Application {
         infoStage.setResizable(false);
         btInfo.setOnAction(e -> infoStage.show());
         btInfoOK.setOnAction(e -> infoStage.close());
+        
+        // ----- FILTER STAGE ----- //
+        HBox filterHB = new HBox();
+        filterHB.setPadding(new Insets(10, 10, 0, 10));
+        filterHB.setAlignment(Pos.CENTER);
+        Text filterText = new Text("Choose the media types to include:");
+        filterText.setTextAlignment(TextAlignment.CENTER);
+        filterHB.getChildren().add(filterText);
+        
+        FlowPane filterOptions = new FlowPane();
+        filterOptions.setPadding(new Insets(10, 10, 0, 10));
+        filterOptions.setAlignment(Pos.CENTER);
+        filterOptions.setHgap(10);
+        filterOptions.setVgap(10);
+        CheckBox chkMovieFilter = new CheckBox("Movies");
+        chkMovieFilter.setSelected(true);
+        CheckBox chkShowFilter = new CheckBox("Shows");
+        chkShowFilter.setSelected(true);
+        CheckBox chkGameFilter = new CheckBox("Games");
+        chkGameFilter.setSelected(true);
+        CheckBox chkMusicFilter = new CheckBox("Music");
+        chkMusicFilter.setSelected(true);
+        CheckBox chkBookFilter = new CheckBox("Books");
+        chkBookFilter.setSelected(true);
+        filterOptions.getChildren().addAll(chkMovieFilter, chkShowFilter, chkGameFilter, chkMusicFilter, chkBookFilter);
+
+        HBox filterButtons = new HBox(10);
+        filterButtons.setPadding(new Insets(0, 10, 10, 10));
+        filterButtons.setAlignment(Pos.CENTER);
+        Button btFilterOK = new Button("OK");
+        btFilterOK.setPrefWidth(60);
+        Button btFilterReset = new Button("Reset");
+        btFilterReset.setPrefWidth(60);
+        filterButtons.getChildren().addAll(btFilterOK, btFilterReset);
+
+        BorderPane filterBP = new BorderPane();
+        filterBP.setTop(filterHB);
+        filterBP.setCenter(filterOptions);
+        filterBP.setBottom(filterButtons);
+
+        Stage filterStage = new Stage();
+        Scene filterScene = new Scene(filterBP, 350, 250);
+        filterScene.getStylesheets().add(css);
+        filterStage.setScene(filterScene);
+        filterStage.setTitle("Filter Library");
+        filterStage.setResizable(false);
+
+        btFilter.setOnAction(e -> {
+            filterStage.show();
+            otherStage.close();
+        });
+
+        btFilterOK.setOnAction(e -> filterStage.close());
+
+        btFilterReset.setOnAction(e -> {
+            chkMovieFilter.setSelected(true);
+            chkShowFilter.setSelected(true);
+            chkGameFilter.setSelected(true);
+            chkMusicFilter.setSelected(true);
+            chkBookFilter.setSelected(true);
+            view.resetFilters();
+        });
+
+        chkMovieFilter.setOnAction(e -> {
+            if (chkMovieFilter.isSelected()) {
+                view.removeFilter("Movie");
+            } else {
+                view.addFilter("Movie");
+            }
+        });
+
+        chkShowFilter.setOnAction(e -> {
+            if (chkShowFilter.isSelected()) {
+                view.removeFilter("Show");
+            } else {
+                view.addFilter("Show");
+            }
+        });
+
+        chkGameFilter.setOnAction(e -> {
+            if (chkGameFilter.isSelected()) {
+                view.removeFilter("Game");
+            } else {
+                view.addFilter("Game");
+            }
+        });
+
+        chkMusicFilter.setOnAction(e -> {
+            if (chkMusicFilter.isSelected()) {
+                view.removeFilter("Music");
+            } else {
+                view.addFilter("Music");
+            }
+        });
+
+        chkBookFilter.setOnAction(e -> {
+            if (chkBookFilter.isSelected()) {
+                view.removeFilter("Book");
+            } else {
+                view.addFilter("Book");
+            }
+        });
 
         // ----- GROUP SEARCH STAGE ----- //
 
@@ -300,17 +405,17 @@ public class MediaLibrary extends Application {
         generalSearchOptions.setAlignment(Pos.CENTER);
         generalSearchOptions.setHgap(10);
         generalSearchOptions.setVgap(10);
-        CheckBox chkMovie = new CheckBox("Movies");
-        chkMovie.setSelected(true);
-        CheckBox chkShow = new CheckBox("Shows");
-        chkShow.setSelected(true);
-        CheckBox chkGame = new CheckBox("Games");
-        chkGame.setSelected(true);
-        CheckBox chkMusic = new CheckBox("Music");
-        chkMusic.setSelected(true);
-        CheckBox chkBook = new CheckBox("Books");
-        chkBook.setSelected(true);
-        generalSearchOptions.getChildren().addAll(chkMovie, chkShow, chkGame, chkMusic, chkBook);
+        CheckBox chkMovieSearch = new CheckBox("Movies");
+        chkMovieSearch.setSelected(true);
+        CheckBox chkShowSearch = new CheckBox("Shows");
+        chkShowSearch.setSelected(true);
+        CheckBox chkGameSearch = new CheckBox("Games");
+        chkGameSearch.setSelected(true);
+        CheckBox chkMusicSearch = new CheckBox("Music");
+        chkMusicSearch.setSelected(true);
+        CheckBox chkBookSearch = new CheckBox("Books");
+        chkBookSearch.setSelected(true);
+        generalSearchOptions.getChildren().addAll(chkMovieSearch, chkShowSearch, chkGameSearch, chkMusicSearch, chkBookSearch);
 
         BorderPane generalSearchBP = new BorderPane();
         generalSearchBP.setTop(generalSearchHB);
@@ -333,19 +438,19 @@ public class MediaLibrary extends Application {
 
             // Set up exclusion list
             ArrayList<String> exclude = new ArrayList<>();
-            if (!chkMovie.isSelected()) {
+            if (!chkMovieSearch.isSelected()) {
                 exclude.add("Movie");
             }
-            if (!chkShow.isSelected()) {
+            if (!chkShowSearch.isSelected()) {
                 exclude.add("Show");
             }
-            if (!chkGame.isSelected()) {
+            if (!chkGameSearch.isSelected()) {
                 exclude.add("Game");
             }
-            if (!chkMusic.isSelected()) {
+            if (!chkMusicSearch.isSelected()) {
                 exclude.add("Music");
             }
-            if (!chkBook.isSelected()) {
+            if (!chkBookSearch.isSelected()) {
                 exclude.add("Book");
             }
 
@@ -548,7 +653,7 @@ public class MediaLibrary extends Application {
             try {
                 if (nameTF.getText().isBlank()) {
                     errorText.setText("You must enter a " + type + " name");
-                } else if (!ratingTF.getText().isBlank() && Media.validateRating(Double.parseDouble(ratingTF.getText()))) {
+                } else if (!ratingTF.getText().isBlank() && !Media.validateRating(Double.parseDouble(ratingTF.getText()))) {
                     errorText.setText("Rating must be between 0 and 10");
                 } else {
                     // Set universal media fields
@@ -698,10 +803,12 @@ public class MediaLibrary extends Application {
         }
     }
 
+    /** Sets the size text of the library */
     public static void setSize(int size) {
         sizeText.setText("Library size: " + size);
     }
 
+    /** Sets the title of the library */
     public static void setTitle(String title) {
         String shortenedTitle = LibraryView.shortenText(new Text(title), 130);
         titleText.setText(shortenedTitle);

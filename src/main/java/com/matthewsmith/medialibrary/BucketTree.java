@@ -332,17 +332,6 @@ public class BucketTree<K, V> {
         return this.size == 0;
     }
 
-//    public void inorder() {
-//        inorder(root);
-//    }
-//
-//    private void inorder(BucketTreeNode<K, V> node) {
-//        if (node == null) return;
-//        inorder(node.left);
-//        System.out.println("(" + node.key + ", " + node.value + ")");
-//        inorder(node.right);
-//    }
-
     /** Returns the size of the tree */
     public int getSize() {
         return this.size;

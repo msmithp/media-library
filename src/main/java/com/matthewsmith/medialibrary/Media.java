@@ -13,9 +13,7 @@ import javafx.scene.paint.Color;
 
 import java.io.Serializable;
 import java.time.Year;
-import java.util.Arrays;
-import java.util.Date;
-import java.util.Objects;
+import java.util.*;
 
 public class Media implements Serializable, Cloneable {
     private String name;
@@ -121,7 +119,7 @@ public class Media implements Serializable, Cloneable {
     }
 
     public static boolean validateRating(double rating) {
-        return (rating < 0 || rating > 10);
+        return (rating >= 0 && rating <= 10);
     }
 
     @Override
@@ -166,5 +164,49 @@ public class Media implements Serializable, Cloneable {
                 ", rating=" + rating +
                 ", color=" + Arrays.toString(color) +
                 ", dateAdded=" + dateAdded;
+    }
+
+    public double getSimilarity(Media m) {
+        double nameValue = compareStrings(name.toLowerCase(),
+                m.getName().toLowerCase()) * 0.15; // name is worth 15% of score
+        double genreValue = compareStrings(genre.toLowerCase(),
+                m.getGenre().toLowerCase()) * 0.55; // genre is worth 55% of score
+        double yearValue = (1 - (Math.abs(year - m.getYear()) / Double.MAX_VALUE)) * 0.2; // year is worth 20% of score
+        double ratingValue = (1 - (Math.abs(rating - m.getRating()) / 10.0)) * 0.1; // rating is worth 10% of score
+
+        return nameValue + genreValue + yearValue + ratingValue;
+    }
+
+    /** Finds Jaccard similarity coefficient of two strings by creating sets of bigrams */
+    protected static double compareStrings(String s1, String s2) {
+        if (s1.isBlank() || s2.isBlank()) {
+            return 0;
+        } else if (s1.length() == 1 && s2.length() == 1) {
+            return s1.equals(s2) ? 1 : 0;
+        } else if (s1.length() == 1 || s2.length() == 1) {
+            return s1.charAt(0) == s2.charAt(0) ? 1 : 0;
+        }
+
+        // Create sets of bigrams (for example, ab, bc, cd)
+        Set<String> a = new HashSet<>();
+        Set<String> b = new HashSet<>();
+
+        for (int i = 0; i < s1.length() - 1; i++) {
+            a.add(s1.charAt(i) + s1.charAt(i + 1) + "");
+        }
+
+        for (int i = 0; i < s2.length() - 1; i++) {
+            b.add(s2.charAt(i) + s2.charAt(i + 1) + "");
+        }
+
+        // Store sizes of sets a and b
+        int aSize = a.size();
+        int bSize = b.size();
+
+        a.retainAll(b); // a is an intersection of a and b
+        int intersectionSize = a.size();
+
+        // return |intersection(a,b)| / |union(a,b)|
+        return 1.0 * intersectionSize / (aSize + bSize - intersectionSize);
     }
 }

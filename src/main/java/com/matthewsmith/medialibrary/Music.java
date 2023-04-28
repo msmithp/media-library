@@ -33,6 +33,15 @@ public class Music extends Media implements Serializable {
     }
 
     @Override
+    public double getSimilarity(Media m) {
+        double initialValue = super.getSimilarity(m) * 0.85; // initial score values are worth 85%
+        double artistValue = compareStrings(artist.toLowerCase(),
+                ((Music) m).getArtist().toLowerCase()) * 0.15; // artist is worth 15%
+
+        return initialValue + artistValue;
+    }
+
+    @Override
     public String toString() {
         return "Music{" + super.toString() +
                 ", artist='" + artist + '\'' +

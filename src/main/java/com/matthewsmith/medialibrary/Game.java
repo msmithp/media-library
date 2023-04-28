@@ -55,6 +55,19 @@ public class Game extends Media implements Serializable {
     }
 
     @Override
+    public double getSimilarity(Media m) {
+        double initialValue = super.getSimilarity(m) * 0.7; // initial score values are worth 70%
+        double developerValue = compareStrings(developer.toLowerCase(),
+                ((Game) m).getDeveloper().toLowerCase()) * 0.15; // developer is worth 15%
+        double consoleValue = compareStrings(console.toLowerCase(),
+                ((Game) m).getConsole().toLowerCase()) * 0.1; // console is worth 10%
+        double numPlayersValue = (1 - (Math.abs(numPlayers -
+                ((Game) m).getNumPlayers()) / Double.MAX_VALUE)) * 0.05; // number of players is worth 5%
+
+        return initialValue + developerValue + consoleValue + numPlayersValue;
+    }
+
+    @Override
     public String toString() {
         return "Game{" + super.toString() +
                 ", developer='" + developer + '\'' +

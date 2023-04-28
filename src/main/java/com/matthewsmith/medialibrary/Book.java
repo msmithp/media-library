@@ -33,6 +33,15 @@ public class Book extends Media implements Serializable {
     }
 
     @Override
+    public double getSimilarity(Media m) {
+        double initialValue = super.getSimilarity(m) * 0.85; // initial score values are worth 85%
+        double authorValue = compareStrings(author.toLowerCase(),
+                ((Book) m).getAuthor().toLowerCase()) * 0.15; // author is worth 15%
+
+        return initialValue + authorValue;
+    }
+
+    @Override
     public String toString() {
         return "Book{" + super.toString() +
                 ", author='" + author + '\'' +

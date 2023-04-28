@@ -9,7 +9,7 @@ Description: CSS stylesheet for use in MediaLibrary */
 /* ROOT */
 
 .root {
-    -fx-background: #1b1b1c;
+    -fx-background: #1B1B1C;
 }
 
 /* SCROLL PANE */
@@ -27,8 +27,8 @@ Description: CSS stylesheet for use in MediaLibrary */
 /* SCROLL BAR */
 
 .scroll-bar, .scroll-bar .increment-button, .scroll-bar .decrement-button {
-    -fx-background-color: #3b3254;
-    -fx-border-color: #3b3254;
+    -fx-background-color: #3B3254;
+    -fx-border-color: #3B3254;
     -fx-padding: 3px;
 }
 
@@ -166,4 +166,9 @@ Text {
     -fx-font-family: "Manrope";
     -fx-font-weight: bold;
     -fx-font-size: 18;
+}
+
+.bubble {
+    -fx-font-family: "Manrope";
+    -fx-font-weight: bold;
 }
