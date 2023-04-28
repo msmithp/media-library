@@ -18,7 +18,7 @@ There isn’t a specific time or place when it would be used, but seeing as most
 
 ### How does this software work?
 
-This software will allow users to add, remove, view, edit, sort, and search through the media they have logged, including movies, shows, games, music, and books. It stores the information in a text file and references this file every time it opens. 
+This software will allow users to add, remove, view, edit, sort, and search through the media they have logged, including movies, shows, games, music, and books. It stores the information in a binary data file and references this file every time it opens. 
 
 
 ### Why would anyone want to use this over existing processes?
@@ -26,4 +26,6 @@ This software will allow users to add, remove, view, edit, sort, and search thro
 Compared to other popular services and applications, like Letterboxd and Goodreads, Media Library has two significant differences: It is more general, and it has a greater emphasis on visualizing data in a satisfying way. It also lacks an online social element as the focus is more on user-specific data.
 
 
-![Media Library UML diagram](https://user-images.githubusercontent.com/125315977/223275491-89014bbb-d063-4e01-9cb2-7f6b63e876e2.png)
+![Media Library UML Part 1](https://user-images.githubusercontent.com/125315977/235059451-71b31059-139a-446f-8e7e-6ccd470547c4.png)
+
+![Media Library UML Part 2](https://user-images.githubusercontent.com/125315977/235059500-f48e6c74-4d4b-4867-92b2-c1fc3ede035a.png)
