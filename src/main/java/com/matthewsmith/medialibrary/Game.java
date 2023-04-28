@@ -61,8 +61,11 @@ public class Game extends Media implements Serializable {
                 ((Game) m).getDeveloper().toLowerCase()) * 0.15; // developer is worth 15%
         double consoleValue = compareStrings(console.toLowerCase(),
                 ((Game) m).getConsole().toLowerCase()) * 0.1; // console is worth 10%
-        double numPlayersValue = (1 - (Math.abs(numPlayers -
-                ((Game) m).getNumPlayers()) / Double.MAX_VALUE)) * 0.05; // number of players is worth 5%
+
+        // if numPlayers difference is >2, numPlayers value is 0
+        int numPlayersDifference = Math.abs(numPlayers - ((Game) m).getNumPlayers());
+        double numPlayersValue = numPlayersDifference > 2 ?
+                0 : (1 - (numPlayersDifference / 2.0)) * 0.05; // number of players is worth 5%
 
         return initialValue + developerValue + consoleValue + numPlayersValue;
     }

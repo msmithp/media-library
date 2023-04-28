@@ -24,7 +24,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 
 public class MediaLibrary extends Application {
-    public static final String css = new File("./application.css").toURI().toString(); // css stylesheet
+    public static final String CSS = new File("./application.css").toURI().toString(); // css stylesheet
     private LibraryView view;
     private Library<Media> library;
     private static Text sizeText;
@@ -97,7 +97,7 @@ public class MediaLibrary extends Application {
         bp.setBottom(bottom);
 
         Scene scene = new Scene(bp, 800, 550);
-        scene.getStylesheets().add(css);
+        scene.getStylesheets().add(CSS);
 
         primaryStage.setTitle("Media Library");
         primaryStage.setScene(scene);
@@ -152,7 +152,7 @@ public class MediaLibrary extends Application {
 
         Stage addStage = new Stage();
         Scene addScene = new Scene(addBox, 360, 120);
-        addScene.getStylesheets().add(css);
+        addScene.getStylesheets().add(CSS);
         addStage.setResizable(false);
         addStage.setTitle("Add New Media");
         addStage.setScene(addScene);
@@ -200,7 +200,7 @@ public class MediaLibrary extends Application {
         otherBP.setTop(otherHB);
         otherBP.setCenter(other);
         Scene otherScene = new Scene(otherBP, 300, 280);
-        otherScene.getStylesheets().add(css);
+        otherScene.getStylesheets().add(CSS);
         Stage otherStage = new Stage();
         otherStage.setScene(otherScene);
         otherStage.setResizable(false);
@@ -227,7 +227,7 @@ public class MediaLibrary extends Application {
 
         Stage infoStage = new Stage();
         Scene infoScene = new Scene(infoVB, 400, 300);
-        infoScene.getStylesheets().add(css);
+        infoScene.getStylesheets().add(CSS);
         infoStage.setScene(infoScene);
         infoStage.setTitle("More Information");
         infoStage.setResizable(false);
@@ -275,7 +275,7 @@ public class MediaLibrary extends Application {
 
         Stage filterStage = new Stage();
         Scene filterScene = new Scene(filterBP, 350, 250);
-        filterScene.getStylesheets().add(css);
+        filterScene.getStylesheets().add(CSS);
         filterStage.setScene(filterScene);
         filterStage.setTitle("Filter Library");
         filterStage.setResizable(false);
@@ -363,7 +363,7 @@ public class MediaLibrary extends Application {
 
         Stage groupSearchStage = new Stage();
         Scene groupSearchScene = new Scene(groupSearchBP, 350, 120);
-        groupSearchScene.getStylesheets().add(css);
+        groupSearchScene.getStylesheets().add(CSS);
         groupSearchStage.setScene(groupSearchScene);
         groupSearchStage.setTitle("Group Search");
         groupSearchStage.setResizable(false);
@@ -424,7 +424,7 @@ public class MediaLibrary extends Application {
 
         Stage generalSearchStage = new Stage();
         Scene generalSearchScene = new Scene(generalSearchBP, 300, 200);
-        generalSearchScene.getStylesheets().add(css);
+        generalSearchScene.getStylesheets().add(CSS);
         generalSearchStage.setScene(generalSearchScene);
         generalSearchStage.setTitle("General Search");
         generalSearchStage.setResizable(false);
@@ -490,7 +490,7 @@ public class MediaLibrary extends Application {
         clearBP.setTop(clearTop);
         clearBP.setBottom(clearBottom);
         Scene clearScene = new Scene(clearBP, 300, 160);
-        clearScene.getStylesheets().add(css);
+        clearScene.getStylesheets().add(CSS);
 
         Stage clearStage = new Stage();
         clearStage.setScene(clearScene);
@@ -732,7 +732,7 @@ public class MediaLibrary extends Application {
 
         btCancel.setOnAction(e -> stage.close());
         Scene scene = new Scene(add, 400, height);
-        scene.getStylesheets().add(css);
+        scene.getStylesheets().add(CSS);
 
         stage.setScene(scene);
         stage.setTitle("Add New " + type);
@@ -764,7 +764,7 @@ public class MediaLibrary extends Application {
         stage.setResizable(false);
         stage.setTitle("Alert");
         Scene scene = new Scene(bp, 300, LibraryView.calculateTextHeight(text) + 120);
-        scene.getStylesheets().add(css);
+        scene.getStylesheets().add(CSS);
         stage.setScene(scene);
         stage.show();
 

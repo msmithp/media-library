@@ -138,7 +138,7 @@ public class BubbleDiagramPane extends Pane {
         totalWeight += similarityValue;
 
         for (int i = 1; i < media.length; i++) {
-            if (media[i] == null || totalWeight > 5.25) return;
+            if (media[i] == null || totalWeight > 5.6) return;
             similarityValue = 1 - graph.getWeight(rootIndex, graph.getIndex(media[i]));
             newRadius = Math.max(similarityValue, 0.3) * maxRadius;
 

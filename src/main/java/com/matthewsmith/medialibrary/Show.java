@@ -59,10 +59,16 @@ public class Show extends Media implements Serializable {
         double initialValue = super.getSimilarity(m) * 0.7; // initial score values are worth 70% of score
         double creatorValue = compareStrings(creator.toLowerCase(),
                 ((Show) m).getCreator().toLowerCase()) * 0.2; // creator is worth 20% of score
-        double numSeasonsValue = (1 - (Math.abs(numSeasons -
-                ((Show) m).getNumSeasons()) / Double.MAX_VALUE)) * 0.05; // number of seasons is worth 5% of score
-        double numEpisodesValue = (1 - (Math.abs(numEpisodes -
-                ((Show) m).getNumEpisodes()) / Double.MAX_VALUE)) * 0.05; // number of episodes is worth 5% of score
+
+        // if numSeasons difference is >3, the numSeasons value is 0
+        int numSeasonsDifference = Math.abs(numSeasons - ((Show) m).getNumSeasons());
+        double numSeasonsValue = numSeasonsDifference > 3 ?
+                0 : (1 - (numSeasonsDifference / 3.0)) * 0.05; // number of seasons is worth 5% of score
+
+        // if numEpisodes difference is >20, numEpisodes value is 0
+        int numEpisodesDifference = Math.abs(numEpisodes - ((Show) m).getNumEpisodes());
+        double numEpisodesValue = numEpisodesDifference > 20 ?
+                0 : (1 - (numEpisodesDifference / 20.0)) * 0.05; // number of episodes is worth 5% of score
 
         return initialValue + creatorValue + numSeasonsValue + numEpisodesValue;
     }

@@ -45,11 +45,14 @@ public class Movie extends Media implements Serializable {
 
     @Override
     public double getSimilarity(Media m) {
-        double initialValue = super.getSimilarity(m) * 0.75; // initial score values are worth 75%
+        double initialValue = super.getSimilarity(m) * 0.70; // initial score values are worth 70%
         double directorValue = compareStrings(director.toLowerCase(),
-                ((Movie) m).getDirector().toLowerCase()) * 0.2; // director is worth 20% of score
-        double durationValue = (1 - (Math.abs(duration -
-                ((Movie) m).getDuration()) / Double.MAX_VALUE)) * 0.05; // duration is worth 5% of score
+                ((Movie) m).getDirector().toLowerCase()) * 0.25; // director is worth 25% of score
+
+        // if duration difference is >35, the duration value is 0
+        int durationDifference = Math.abs(duration - ((Movie) m).getDuration());
+        double durationValue = durationDifference > 35 ?
+                0 : (1 - (durationDifference / 35.0)) * 0.05; // duration is worth 5% of score
 
         return initialValue + directorValue + durationValue;
     }

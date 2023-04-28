@@ -124,16 +124,20 @@ public class LibraryView extends Pane {
 
     /** Draws the library */
     public void draw() {
-        ArrayList<Media> filteredList = new ArrayList<>();
+        if (!excludeList.isEmpty()) {
+            ArrayList<Media> filteredList = new ArrayList<>();
 
-        // Apply filter to all media in library
-        for (int i = 0; i < library.getSize(); i++) {
-            Media m = library.getMedia().get(i);
-            if (!excludeList.contains(m.getClass().getSimpleName())) {
-                filteredList.add(m);
+            // Apply filter to all media in library
+            for (int i = 0; i < library.getSize(); i++) {
+                Media m = library.getMedia().get(i);
+                if (!excludeList.contains(m.getClass().getSimpleName())) {
+                    filteredList.add(m);
+                }
             }
+            draw(filteredList);
+        } else {
+            draw(library.getMedia());
         }
-        draw(filteredList);
     }
 
     /** DrawTask class for parallel draw method implementation */
@@ -154,10 +158,10 @@ public class LibraryView extends Pane {
             if (end - start < THRESHOLD) {
                 for (int i = start; i < end; i++) {
                     // Check if media class is being filtered
-                    if (!excludeList.contains(list.get(i).getClass().getSimpleName())) {
+//                    if (!excludeList.contains(list.get(i).getClass().getSimpleName())) {
                         int x = (i * 80) + 60;
                         drawEntry(list.get(i), x);
-                    }
+//                    }
                 }
             } else {
                 int middle = (start + end) / 2;
@@ -173,7 +177,7 @@ public class LibraryView extends Pane {
         RecursiveAction mainTask = new DrawTask(list, 0, list.size());
         ForkJoinPool pool = new ForkJoinPool();
         pool.invoke(mainTask); // invoke task
-        drawShelfBar(library.getSize());
+        drawShelfBar(list.size());
         MediaLibrary.setTitle("My Media Library");
     }
 
@@ -454,7 +458,7 @@ public class LibraryView extends Pane {
         pane.getChildren().addAll(rect, vb);
 
         Scene scene = new Scene(new ScrollPane(pane), 800, 450);
-        scene.getStylesheets().add(MediaLibrary.css);
+        scene.getStylesheets().add(MediaLibrary.CSS);
         stage.setScene(scene);
         stage.setResizable(false);
         stage.setTitle("View " + m.getClass().getSimpleName() + ": " + m.getName());
@@ -850,7 +854,7 @@ public class LibraryView extends Pane {
         pane.getChildren().addAll(rect, vb);
 
         Scene scene = new Scene(scroll, 800, 450);
-        scene.getStylesheets().add(MediaLibrary.css);
+        scene.getStylesheets().add(MediaLibrary.CSS);
         stage.setScene(scene);
         stage.setResizable(false);
         stage.setTitle("Edit " + m.getClass().getSimpleName() + ": " + m.getName());
@@ -886,7 +890,7 @@ public class LibraryView extends Pane {
         });
 
         Scene scene = new Scene(bp, 800, 800);
-        scene.getStylesheets().add(MediaLibrary.css);
+        scene.getStylesheets().add(MediaLibrary.CSS);
 
         stage.setTitle("Similar Media: " + m.getName());
         stage.setScene(scene);

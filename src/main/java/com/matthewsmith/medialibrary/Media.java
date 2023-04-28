@@ -153,25 +153,16 @@ public class Media implements Serializable, Cloneable {
         }
     }
 
-    @Override
-    public String toString() {
-        return  "name='" + name + '\'' +
-                ", genre='" + genre + '\'' +
-                ", description='" + description + '\'' +
-                ", format='" + format + '\'' +
-                ", year=" + year +
-                ", yearConsumed=" + yearConsumed +
-                ", rating=" + rating +
-                ", color=" + Arrays.toString(color) +
-                ", dateAdded=" + dateAdded;
-    }
-
     public double getSimilarity(Media m) {
         double nameValue = compareStrings(name.toLowerCase(),
                 m.getName().toLowerCase()) * 0.15; // name is worth 15% of score
         double genreValue = compareStrings(genre.toLowerCase(),
                 m.getGenre().toLowerCase()) * 0.55; // genre is worth 55% of score
-        double yearValue = (1 - (Math.abs(year - m.getYear()) / Double.MAX_VALUE)) * 0.2; // year is worth 20% of score
+
+        // if year difference is >20, the year value is 0
+        int yearDifference = Math.abs(year - m.getYear());
+        double yearValue = yearDifference > 20 ? 0 : (1 - (yearDifference / 20.0)) * 0.2; // year is worth 20% of score
+
         double ratingValue = (1 - (Math.abs(rating - m.getRating()) / 10.0)) * 0.1; // rating is worth 10% of score
 
         return nameValue + genreValue + yearValue + ratingValue;
@@ -208,5 +199,18 @@ public class Media implements Serializable, Cloneable {
 
         // return |intersection(a,b)| / |union(a,b)|
         return 1.0 * intersectionSize / (aSize + bSize - intersectionSize);
+    }
+
+    @Override
+    public String toString() {
+        return  "name='" + name + '\'' +
+                ", genre='" + genre + '\'' +
+                ", description='" + description + '\'' +
+                ", format='" + format + '\'' +
+                ", year=" + year +
+                ", yearConsumed=" + yearConsumed +
+                ", rating=" + rating +
+                ", color=" + Arrays.toString(color) +
+                ", dateAdded=" + dateAdded;
     }
 }

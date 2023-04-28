@@ -81,11 +81,6 @@ public class Library<E> implements Iterable<E> {
         return tree.get(key);
     }
 
-    /** Returns the file */
-    public File getFile() {
-        return file;
-    }
-
     /** Returns the size of the library */
     public int getSize() {
         return media.size();
@@ -117,7 +112,7 @@ public class Library<E> implements Iterable<E> {
     }
 
     /** Returns the index of a media entry, or -low - 1 if the media is not in the library */
-    public int getIndex(E e) {
+    private int getIndex(E e) {
         int low = 0;
         int high = media.size() - 1;
 
@@ -226,6 +221,7 @@ public class Library<E> implements Iterable<E> {
         }
     }
 
+    /** Returns an iterator to iterate through the media list */
     @Override
     public Iterator<E> iterator() {
         return media.iterator();
