@@ -25,7 +25,6 @@ This software will allow users to add, remove, view, edit, sort, and search thro
 
 Compared to other popular services and applications, like Letterboxd and Goodreads, Media Library has two significant differences: It is more general, and it has a greater emphasis on visualizing data in a satisfying way. It also lacks an online social element as the focus is more on user-specific data.
 
+![Media Library UML Part 1](https://user-images.githubusercontent.com/125315977/236022820-713d171f-e1ae-4f65-a1e0-4fc7bc1fa0bf.png)
 
-![Media Library UML Part 1](https://user-images.githubusercontent.com/125315977/235059451-71b31059-139a-446f-8e7e-6ccd470547c4.png)
-
-![Media Library UML Part 2](https://user-images.githubusercontent.com/125315977/235059500-f48e6c74-4d4b-4867-92b2-c1fc3ede035a.png)
+![Media Library UML Part 2](https://user-images.githubusercontent.com/125315977/236022859-fb24a573-d9a7-4a0d-88cf-32995de25467.png)
