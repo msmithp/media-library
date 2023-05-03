@@ -30,11 +30,13 @@ public class BubbleDiagramPane extends Pane {
     private final Library<Media> library;
     private WeightedGraph<Media> graph;
     private Media root;
+    private final String type;
 
     /** Creates a bubble diagram pane from a library and root media */
     public BubbleDiagramPane(Library<Media> library, Media root) {
         this.library = library;
         this.root = root;
+        this.type = root.getClass().getSimpleName();
         graph = new WeightedGraph<>();
         createGraph();
         draw();
@@ -46,13 +48,15 @@ public class BubbleDiagramPane extends Pane {
         draw();
     }
 
-    /** Creates a complete graph of all media in library */
+    /** Creates a complete graph of all media of a certain type in library */
     private void createGraph() {
         ArrayList<Media> media = library.getMedia();
 
         // Add a vertex for each media
         for (Media m : media) {
-            graph.addVertex(m);
+            if (m.getClass().getSimpleName().equals(type)) {
+                graph.addVertex(m);
+            }
         }
 
         // Add edges between all media with weight of 1 - similarity score
@@ -60,12 +64,20 @@ public class BubbleDiagramPane extends Pane {
             Media m1 = media.get(i);
             int index1 = graph.getIndex(m1);
 
+            if (!m1.getClass().getSimpleName().equals(type)) {
+                continue;
+            }
+
             for (int j = 0; j < media.size(); j++) {
                 Media m2 = media.get(j);
                 int index2 = graph.getIndex(m2);
 
-                // If m1 and m2 are of the same type, add an edge
-                if (m1.getClass().equals(m2.getClass()) && !m1.equals(m2)) {
+                if (!m2.getClass().getSimpleName().equals(type)) {
+                    continue;
+                }
+
+                // If m1 and m2 are not the same, add an edge
+                if (!m1.equals(m2)) {
                     double weight = 1 - m1.getSimilarity(m2);
                     graph.addEdge(index1, index2, weight);
                     graph.addEdge(index2, index1, weight);
