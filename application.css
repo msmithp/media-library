@@ -59,18 +59,21 @@ Description: CSS stylesheet for use in MediaLibrary */
     -fx-background-color: #34206E;
 }
 
+.combo-box-popup .list-view .list-cell {
+    -fx-background-color: #56497A;
+}
+
 .combo-box .list-cell {
     -fx-text-fill: white;
-    -fx-background-color: #56497A;
     -fx-font-size: 1.2em;
     -fx-background-radius: 5px;
 }
 
-.combo-box .list-cell: hover {
+.combo-box .list-view .list-cell: hover {
     -fx-background-color: #3B3254;
 }
 
-.combo-box .arrow {
+.combo-box-base .arrow {
     -fx-background-color: white;
 }
 
