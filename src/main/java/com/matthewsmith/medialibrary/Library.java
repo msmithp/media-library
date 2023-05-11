@@ -16,7 +16,7 @@ public class Library<E> implements Iterable<E> {
     private Comparator<E> c;
     private HashMap<E, String> groups;
     private BucketTree<String, E> tree;
-    private final File file;
+    private File file;
 
     /** Creates an empty library */
     public Library() {
@@ -42,6 +42,10 @@ public class Library<E> implements Iterable<E> {
     /** Returns the list of media */
     public ArrayList<E> getMedia() {
         return media;
+    }
+
+    public void setFile(File file) {
+        this.file = file;
     }
 
     /** Adds an element to a specified group */
@@ -131,11 +135,13 @@ public class Library<E> implements Iterable<E> {
     }
 
     /** Clears list, groups map, and tree */
-    public void clear() {
+    public void clear(boolean write) {
         media.clear();
         groups.clear();
         tree.clear();
-        write();
+        if (write) {
+            write();
+        }
     }
 
     /** Recursive quick sort - O(n log n) time complexity */
@@ -194,23 +200,28 @@ public class Library<E> implements Iterable<E> {
     }
 
     /** Reads data from the library.dat file into the media ArrayList */
-    protected void read() {
+    protected void read() throws IOException, ClassNotFoundException {
+        read(file);
+    }
+
+    /** Reads data from a file into the media ArrayList */
+    protected void read(File file) throws IOException, ClassNotFoundException {
         if (file.length() > 0) {
-            try {
-                FileInputStream in = new FileInputStream("library.dat");
-                ObjectInputStream objectIn = new ObjectInputStream(new BufferedInputStream(in));
-                media = (ArrayList<E>) objectIn.readObject();
-                groups = (HashMap<E, String>) objectIn.readObject();
-            } catch (Exception ex) {
-                ex.printStackTrace();
-            }
+            FileInputStream in = new FileInputStream(file);
+            ObjectInputStream objectIn = new ObjectInputStream(new BufferedInputStream(in));
+            media = (ArrayList<E>) objectIn.readObject();
+            groups = (HashMap<E, String>) objectIn.readObject();
         }
     }
 
-    /** Writes the contents of the library to the library.dat file */
     protected void write() {
+        write(file);
+    }
+
+    /** Writes the contents of the library to the library.dat file */
+    protected void write(File file) {
         try {
-            FileOutputStream out = new FileOutputStream("library.dat");
+            FileOutputStream out = new FileOutputStream(file);
             ObjectOutputStream objectOut = new ObjectOutputStream(new BufferedOutputStream(out));
             objectOut.writeObject(media);
             objectOut.writeObject(groups);

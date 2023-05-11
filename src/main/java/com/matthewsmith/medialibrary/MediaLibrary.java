@@ -16,6 +16,7 @@ import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.scene.text.Text;
 import javafx.scene.text.TextAlignment;
+import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 
 import java.io.File;
@@ -27,6 +28,7 @@ public class MediaLibrary extends Application {
     public static final String CSS = new File("./application.css").toURI().toString(); // css stylesheet
     private LibraryView view;
     private Library<Media> library;
+    private ScrollPane libScroll;
     private static Text sizeText;
     private static Text titleText = new Text(350, 25, "");
 
@@ -35,16 +37,9 @@ public class MediaLibrary extends Application {
     public void start(Stage primaryStage) {
         // ----- MAIN LIBRARY STAGE ----- //
         library = new Library<>();
-        library.read(); // Read library from file
-        library.sort(Comparator.comparing(Media::getDateAdded).reversed()); // Default sort: sort by date
-
-        // Build search tree
-        for (Media m : library) {
-            library.addToTree(m.getName(), m);
-        }
-
         view = new LibraryView(library);
-        ScrollPane libScroll = new ScrollPane(view);
+        libScroll = new ScrollPane(view);
+        loadLibrary();
 
         HBox top = new HBox(70);
         top.setPadding(new Insets(10, 10, 10, 10));
@@ -84,7 +79,7 @@ public class MediaLibrary extends Application {
         top.getChildren().addAll(topLeft, topMiddle, topRight);
         top.setAlignment(Pos.CENTER);
 
-        setTitle("My Media Library");
+        setTitle(view.getName());
 
         HBox bottom = new HBox(15);
         bottom.setPadding(new Insets(10, 10, 10, 10));
@@ -105,19 +100,19 @@ public class MediaLibrary extends Application {
         view.draw(); // draw library
 
         btUndo.setOnAction(e -> {
-            setTitle("My Media Library");
+            setTitle(view.getName());
             view.undo();
             setSize(library.getSize());
         });
 
         btRedo.setOnAction(e -> {
-            setTitle("My Media Library");
+            setTitle(view.getName());
             view.redo();
             setSize(library.getSize());
         });
 
         btHome.setOnAction(e -> {
-            setTitle("My Media Library");
+            setTitle(view.getName());
             view.draw();
             libScroll.setHvalue(0);
         });
@@ -191,15 +186,21 @@ public class MediaLibrary extends Application {
         Button btSearch = new Button("Search for an item");
         btSearch.setPrefWidth(200);
 
+        Button btImport = new Button("Import a library");
+        btImport.setPrefWidth(200);
+
+        Button btExport = new Button("Export library");
+        btExport.setPrefWidth(200);
+
         Button btClear = new Button("Clear library");
         btClear.setPrefWidth(200);
 
-        other.getChildren().addAll(btInfo, btFilter, btGroup, btSearch, btClear);
+        other.getChildren().addAll(btInfo, btFilter, btGroup, btSearch, btImport, btExport, btClear);
 
         BorderPane otherBP = new BorderPane();
         otherBP.setTop(otherHB);
         otherBP.setCenter(other);
-        Scene otherScene = new Scene(otherBP, 300, 280);
+        Scene otherScene = new Scene(otherBP, 300, 360);
         otherScene.getStylesheets().add(CSS);
         Stage otherStage = new Stage();
         otherStage.setScene(otherScene);
@@ -218,15 +219,16 @@ public class MediaLibrary extends Application {
 
         Text infoText = new Text(30, 20, "This program allows you to compile various media into one " +
                 "visually cohesive library. Use the \"+\" button in the top-right corner to add a new media entry. " +
-                "To edit or remove a media entry, click on the desired entry and scroll down, or right-click the " +
-                "media entry and choose the desired option.");
+                "To edit or remove a media entry, click on the entry you wish to change and scroll down, or right-click " +
+                "the media entry and choose the desired option. For more options, click the \"...\" button in the " +
+                "top-right corner.");
         infoText.setWrappingWidth(300);
         Button btInfoOK = new Button("OK");
         btInfoOK.setPrefWidth(60);
         infoVB.getChildren().addAll(infoTitleText, infoText, btInfoOK);
 
         Stage infoStage = new Stage();
-        Scene infoScene = new Scene(infoVB, 400, 300);
+        Scene infoScene = new Scene(infoVB, 400, 320);
         infoScene.getStylesheets().add(CSS);
         infoStage.setScene(infoScene);
         infoStage.setTitle("More Information");
@@ -235,6 +237,7 @@ public class MediaLibrary extends Application {
         btInfoOK.setOnAction(e -> infoStage.close());
         
         // ----- FILTER STAGE ----- //
+
         HBox filterHB = new HBox();
         filterHB.setPadding(new Insets(10, 10, 0, 10));
         filterHB.setAlignment(Pos.CENTER);
@@ -469,6 +472,58 @@ public class MediaLibrary extends Application {
             }
         });
 
+        // ---- IMPORT LIBRARY ----- //
+
+        btImport.setOnAction(e -> {
+            FileChooser fc = new FileChooser();
+            // Set extension filter
+            FileChooser.ExtensionFilter extensionFilter =
+                    new FileChooser.ExtensionFilter("DAT files (*.dat)", "*.dat");
+            fc.getExtensionFilters().add(extensionFilter);
+            fc.setInitialFileName("library.dat");
+            fc.setSelectedExtensionFilter(fc.getExtensionFilters().get(0));
+
+            fc.setInitialDirectory(new File(".")); // Initial directory is current directory
+            fc.setTitle("Open Library");
+            File newFile = fc.showOpenDialog(otherStage);
+
+            if (newFile != null) {
+                library.setFile(newFile); // load new file
+                loadLibrary();
+
+                // clear undo/redo stacks
+                view.clearHistory();
+
+                // adjust visual elements
+                view.setName(newFile.getName());
+                setSize(library.getSize());
+                libScroll.setHvalue(0);
+                view.draw();
+                otherStage.close();
+            }
+        });
+
+        // ----- EXPORT LIBRARY ----- //
+
+        btExport.setOnAction(e -> {
+            FileChooser fc = new FileChooser();
+
+            // Set extension filter
+            FileChooser.ExtensionFilter extensionFilter =
+                    new FileChooser.ExtensionFilter("DAT files (*.dat)", "*.dat");
+            fc.getExtensionFilters().add(extensionFilter);
+            fc.setInitialFileName("library.dat");
+            fc.setSelectedExtensionFilter(fc.getExtensionFilters().get(0));
+
+            fc.setInitialDirectory(new File(".")); // Initial directory is current directory
+            fc.setTitle("Save Library");
+            File export = fc.showSaveDialog(otherStage);
+            if (export != null) {
+                library.write(export);
+                otherStage.close();
+            }
+        });
+
         // ----- CLEAR STAGE ----- //
 
         BorderPane clearBP = new BorderPane();
@@ -503,7 +558,8 @@ public class MediaLibrary extends Application {
         });
 
         btClearOK.setOnAction(e -> {
-            library.clear();
+            library.clear(true);
+            view.clearHistory();
             view.draw();
             setSize(library.getSize());
             clearStage.close();
@@ -771,8 +827,24 @@ public class MediaLibrary extends Application {
         btOK.setOnAction(e -> stage.close());
     }
 
+    /** Loads a library */
+    private void loadLibrary() {
+        library.clear(false);
+        try {
+            library.read(); // Read library from file
+        } catch (Exception ex) {
+            showPopup("Error loading library:\n" + ex);
+        }
+        library.sort(Comparator.comparing(Media::getDateAdded).reversed()); // Default sort: sort by date
+
+        // Build search tree
+        for (Media m : library) {
+            library.addToTree(m.getName(), m);
+        }
+    }
+
     /** Sorts a Library of Media by a specified means */
-    public static void sortLibrary(Library<Media> lib, String sortBy) {
+    private static void sortLibrary(Library<Media> lib, String sortBy) {
         switch (sortBy) {
             case "Sort by Name":
                 lib.sort((m1, m2) -> (m1.getName().compareToIgnoreCase(m2.getName())));

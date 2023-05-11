@@ -39,6 +39,7 @@ public class LibraryView extends Pane {
     private final Stack<Command> history; // History of user actions, for undo function
     private final Stack<Command> undoHistory; // History of undone actions, for redo function
     private final ArrayList<String> excludeList = new ArrayList<>(); // list of excluded classes when drawing
+    private String name;
 
     /** Creates an empty LibraryView */
     public LibraryView() {
@@ -50,6 +51,17 @@ public class LibraryView extends Pane {
         this.library = library;
         this.history = new Stack<>();
         this.undoHistory = new Stack<>();
+        this.name = "My Media Library";
+    }
+
+    /** Sets the name of this library */
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    /** Returns the name of the library */
+    public String getName() {
+        return name;
     }
 
     /** Adds an element to the library */
@@ -89,6 +101,12 @@ public class LibraryView extends Pane {
             library.write();
             draw();
         }
+    }
+
+    /** Empties history and undoHistory stacks */
+    public void clearHistory() {
+        history.clear();
+        undoHistory.clear();
     }
 
     /** Add a filter to the exclude list */
@@ -157,11 +175,8 @@ public class LibraryView extends Pane {
         protected void compute() {
             if (end - start < THRESHOLD) {
                 for (int i = start; i < end; i++) {
-                    // Check if media class is being filtered
-//                    if (!excludeList.contains(list.get(i).getClass().getSimpleName())) {
-                        int x = (i * 80) + 60;
-                        drawEntry(list.get(i), x);
-//                    }
+                    int x = (i * 80) + 60;
+                    drawEntry(list.get(i), x);
                 }
             } else {
                 int middle = (start + end) / 2;
@@ -178,7 +193,7 @@ public class LibraryView extends Pane {
         ForkJoinPool pool = new ForkJoinPool();
         pool.invoke(mainTask); // invoke task
         drawShelfBar(list.size());
-        MediaLibrary.setTitle("My Media Library");
+        MediaLibrary.setTitle(name);
     }
 
     /** Draws a group */
@@ -468,6 +483,7 @@ public class LibraryView extends Pane {
         rect.setHeight(Math.max(vb.getHeight(), 450));
         rect.setFill(new LinearGradient(0, 0,0, 1, true, CycleMethod.NO_CYCLE,
                 new Stop(0, m.getColor()), new Stop(1, m.getColor().darker())));
+        title.requestFocus(); // Focus on title to set scroll to top
     }
 
     /** Displays a screen to edit information about a piece of media */
