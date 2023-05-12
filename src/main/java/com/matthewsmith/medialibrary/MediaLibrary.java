@@ -28,7 +28,6 @@ public class MediaLibrary extends Application {
     public static final String CSS = new File("./application.css").toURI().toString(); // css stylesheet
     private LibraryView view;
     private Library<Media> library;
-    private ScrollPane libScroll;
     private static Text sizeText;
     private static Text titleText = new Text(350, 25, "");
 
@@ -38,7 +37,7 @@ public class MediaLibrary extends Application {
         // ----- MAIN LIBRARY STAGE ----- //
         library = new Library<>();
         view = new LibraryView(library);
-        libScroll = new ScrollPane(view);
+        ScrollPane libScroll = new ScrollPane(view);
         loadLibrary();
 
         HBox top = new HBox(70);
@@ -183,7 +182,7 @@ public class MediaLibrary extends Application {
         Button btGroup = new Button("Show a group");
         btGroup.setPrefWidth(200);
 
-        Button btSearch = new Button("Search for an item");
+        Button btSearch = new Button("Search for media");
         btSearch.setPrefWidth(200);
 
         Button btImport = new Button("Import a library");
@@ -498,6 +497,7 @@ public class MediaLibrary extends Application {
                 view.setName(newFile.getName());
                 setSize(library.getSize());
                 libScroll.setHvalue(0);
+                sortLibrary(library, cboSort.getValue());
                 view.draw();
                 otherStage.close();
             }

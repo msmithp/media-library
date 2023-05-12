@@ -44,6 +44,7 @@ public class Library<E> implements Iterable<E> {
         return media;
     }
 
+    /** Sets the file that this library references */
     public void setFile(File file) {
         this.file = file;
     }

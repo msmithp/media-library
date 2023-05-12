@@ -378,7 +378,7 @@ public class LibraryView extends Pane {
             HBox directorDuration = new HBox(10);
             Text director = new Text("Director: " + ((Movie) m).getDirector());
             director.setWrappingWidth(wrapWidth);
-            Text duration = new Text("Duration: " + ((Movie) m).getDuration());
+            Text duration = new Text("Duration: " + ((Movie) m).getDuration() + " minutes");
             duration.setWrappingWidth(wrapWidth);
 
             // Add all to VBox
